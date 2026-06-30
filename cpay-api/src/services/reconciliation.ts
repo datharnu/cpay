@@ -45,6 +45,8 @@ export function verifyWebhookSignature(
   rawBody: Buffer,
   signature: string | undefined
 ): boolean {
+  if (process.env.SKIP_WEBHOOK_SIGNATURE === "true") return true;
+
   const secret = process.env.NOMBA_WEBHOOK_SECRET;
   if (!secret) return true;
   if (!signature) return false;

@@ -16,6 +16,8 @@ services:
         value: /tmp/cpay.sqlite
       - key: SEED_SANDBOX_PARTNERS
         value: "true"
+      - key: SKIP_WEBHOOK_SIGNATURE
+        value: "true"
       - key: CORS_ORIGIN
         value: http://localhost:3000
       - key: NOMBA_BASE_URL
