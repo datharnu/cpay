@@ -5,10 +5,15 @@ import { settleAllPendingRefunds } from "../services/refundSettlement";
 
 export const dashboardRouter = Router();
 
-dashboardRouter.get("/summary", async (_req, res) => {
-  await settleAllPendingRefunds();
+dashboardRouter.get("/summary", async (_req, res, next) => {
+  try {
+    try {
+      await settleAllPendingRefunds();
+    } catch (err) {
+      console.error("[dashboard] refund settlement poll failed:", err);
+    }
 
-  const partners = await Partner.findAll();
+    const partners = await Partner.findAll();
   const payments = await Payment.findAll();
   const unmatched = payments.filter((p) => p.classification === "unmatched");
   const pendingOverpaymentCount = await OverpaymentCase.count({
@@ -99,6 +104,9 @@ dashboardRouter.get("/summary", async (_req, res) => {
       }),
     },
   });
+  } catch (err) {
+    next(err);
+  }
 });
 
 dashboardRouter.get("/unmatched", async (_req, res) => {

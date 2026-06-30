@@ -1,7 +1,7 @@
 import cors from "cors";
 import express from "express";
 import { env } from "./config/env";
-import { sequelize } from "./db";
+import { configureSqlite, sequelize } from "./db";
 import "./models";
 import { dashboardRouter } from "./routes/dashboard";
 import { devRouter } from "./routes/dev";
@@ -13,6 +13,7 @@ import { seedSandboxPartnersIfEmpty } from "./services/seedSandboxPartners";
 
 async function main() {
   await sequelize.sync();
+  await configureSqlite();
 
   if (env.seedSandboxPartners) {
     await seedSandboxPartnersIfEmpty();
@@ -46,6 +47,20 @@ async function main() {
   if (process.env.NODE_ENV !== "production") {
     app.use("/api/dev", devRouter);
   }
+
+  app.use(
+    (
+      err: unknown,
+      _req: express.Request,
+      res: express.Response,
+      _next: express.NextFunction
+    ) => {
+      console.error("[api error]", err);
+      res.status(500).json({
+        message: err instanceof Error ? err.message : "Internal server error",
+      });
+    }
+  );
 
   app.listen(env.port, () => {
     const webhookPath = "/webhooks/nomba";

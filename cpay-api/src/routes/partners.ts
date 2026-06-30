@@ -30,13 +30,15 @@ const createPartnerSchema = z.object({
   monthlyCommitment: z.number().positive(),
 });
 
-partnersRouter.get("/", async (_req, res) => {
-  const partners = await Partner.findAll({ order: [["createdAt", "DESC"]] });
-  const enriched = await Promise.all(
-    partners.map(async (p) => {
+partnersRouter.get("/", async (_req, res, next) => {
+  try {
+    const partners = await Partner.findAll({ order: [["createdAt", "DESC"]] });
+    const enriched = [];
+
+    for (const p of partners) {
       await ensurePartnerMonths(p);
       const summary = await getPartnerSummary(p.id);
-      return {
+      enriched.push({
         id: p.id,
         fullName: p.fullName,
         phone: p.phone,
@@ -50,10 +52,13 @@ partnersRouter.get("/", async (_req, res) => {
         arrears: summary ? koboToNaira(summary.arrearsKobo) : 0,
         monthsPaid: summary?.monthsPaid ?? 0,
         monthsMissed: summary?.monthsMissed ?? 0,
-      };
-    })
-  );
-  res.json({ data: enriched });
+      });
+    }
+
+    res.json({ data: enriched });
+  } catch (err) {
+    next(err);
+  }
 });
 
 partnersRouter.get("/:id", async (req, res) => {

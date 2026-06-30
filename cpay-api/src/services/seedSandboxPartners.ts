@@ -1,5 +1,5 @@
 import { Partner } from "../models";
-import { nairaToKobo } from "./ledger";
+import { ensurePartnerMonths, nairaToKobo } from "./ledger";
 
 const SANDBOX_PARTNERS = [
   {
@@ -29,7 +29,8 @@ export async function seedSandboxPartnersIfEmpty(): Promise<void> {
   if (count > 0) return;
 
   for (const row of SANDBOX_PARTNERS) {
-    await Partner.create({ ...row, status: "active" });
+    const partner = await Partner.create({ ...row, status: "active" });
+    await ensurePartnerMonths(partner);
   }
 
   console.log(`Seeded ${SANDBOX_PARTNERS.length} sandbox partners (existing Nomba VAs).`);
