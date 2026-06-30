@@ -1,0 +1,36 @@
+import { Partner } from "../models";
+import { nairaToKobo } from "./ledger";
+
+const SANDBOX_PARTNERS = [
+  {
+    fullName: "Sister Grace Adeyemi",
+    phone: "08012345678",
+    email: "grace@church.org",
+    monthlyCommitmentKobo: nairaToKobo(50),
+    accountRef: "cpay_grace_sandbox",
+    virtualAccountNumber: "6087240289",
+    bankName: "Nombank MFB",
+    bankAccountName: "Nomba/Sister Grace Partnership",
+  },
+  {
+    fullName: "Brother Ade Okafor",
+    phone: "08098765432",
+    email: "ade@church.org",
+    monthlyCommitmentKobo: nairaToKobo(100),
+    accountRef: "cpay_ade_sandbox",
+    virtualAccountNumber: "5903473362",
+    bankName: "Nombank MFB",
+    bankAccountName: "Nomba/Brother Ade Partnership",
+  },
+] as const;
+
+export async function seedSandboxPartnersIfEmpty(): Promise<void> {
+  const count = await Partner.count();
+  if (count > 0) return;
+
+  for (const row of SANDBOX_PARTNERS) {
+    await Partner.create({ ...row, status: "active" });
+  }
+
+  console.log(`Seeded ${SANDBOX_PARTNERS.length} sandbox partners (existing Nomba VAs).`);
+}

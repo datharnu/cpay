@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+dist/
+
+# Secrets & local data
+.env
+.env.local
+*.sqlite
+*.sqlite-journal
+
+# OS
+.DS_Store
+
+# Next.js
+cpay-web/.next/
+cpay-web/out/
+
+# Misc
+*.log

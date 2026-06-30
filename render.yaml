@@ -1,0 +1,34 @@
+# CPay API on Render — stable webhook URL for Nomba sandbox
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: cpay-api
+    runtime: node
+    rootDir: cpay-api
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: /tmp/cpay.sqlite
+      - key: SEED_SANDBOX_PARTNERS
+        value: "true"
+      - key: CORS_ORIGIN
+        value: http://localhost:3000
+      - key: NOMBA_BASE_URL
+        value: https://sandbox.nomba.com
+      - key: NOMBA_ACCOUNT_ID
+        sync: false
+      - key: NOMBA_SUB_ACCOUNT_ID
+        sync: false
+      - key: NOMBA_CLIENT_ID
+        sync: false
+      - key: NOMBA_CLIENT_SECRET
+        sync: false
+      - key: NOMBA_WEBHOOK_SECRET
+        sync: false
+      - key: WEBHOOK_URL
+        sync: false
