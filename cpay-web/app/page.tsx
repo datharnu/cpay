@@ -19,6 +19,7 @@ import {
   useImportMissingNomba,
   usePartners,
   useReconcileNomba,
+  useReprocessUnmatched,
 } from "@/hooks/useCpay";
 
 export default function DashboardPage() {
@@ -26,6 +27,7 @@ export default function DashboardPage() {
   const { data: partners, isLoading: partnersLoading } = usePartners();
   const reconcile = useReconcileNomba();
   const importMissing = useImportMissingNomba();
+  const reprocessUnmatched = useReprocessUnmatched();
 
   const lastUpdated = dataUpdatedAt
     ? new Date(dataUpdatedAt).toLocaleTimeString("en-NG")
@@ -145,8 +147,18 @@ export default function DashboardPage() {
       {(summary?.unmatchedPayments ?? 0) > 0 && (
         <AlertSection
           title="Unmatched payments"
-          description="Money arrived at an unknown virtual account — finance review queue."
+          description="Nomba sent a webhook CPay could not link to a member — retry matching or import from Nomba."
           tone="danger"
+          actions={
+            <button
+              type="button"
+              onClick={() => reprocessUnmatched.mutate()}
+              disabled={reprocessUnmatched.isPending}
+              className="btn-secondary"
+            >
+              {reprocessUnmatched.isPending ? "Retrying…" : "Retry matching"}
+            </button>
+          }
         >
           <ul className="space-y-2">
             {summary?.recentUnmatched.map((p) => (

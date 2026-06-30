@@ -8,6 +8,7 @@ import {
   verifyPartnerVirtualAccount,
 } from "../services/nombaReconciliation";
 import { importMissingNombaPayments } from "../services/importNombaPayments";
+import { reprocessUnmatchedPayments } from "../services/reconciliation";
 import {
   getTransferStatus,
   lookupBankAccount,
@@ -36,6 +37,18 @@ reconciliationRouter.post("/import-missing", async (_req, res) => {
   } catch (err) {
     res.status(502).json({
       message: err instanceof Error ? err.message : "Nomba import failed",
+    });
+  }
+});
+
+/** Re-read stored webhook JSON for unmatched rows (e.g. after parser fix). */
+reconciliationRouter.post("/reprocess-unmatched", async (_req, res) => {
+  try {
+    const result = await reprocessUnmatchedPayments();
+    res.json({ data: result });
+  } catch (err) {
+    res.status(500).json({
+      message: err instanceof Error ? err.message : "Reprocess failed",
     });
   }
 });

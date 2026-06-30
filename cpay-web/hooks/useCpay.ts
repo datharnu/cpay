@@ -95,6 +95,22 @@ export function useImportMissingNomba() {
   });
 }
 
+export function useReprocessUnmatched() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post<{
+        data: { fixed: number; skipped: number; purged: number; total: number };
+      }>("/api/reconciliation/reprocess-unmatched");
+      return data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["partners"] });
+    },
+  });
+}
+
 export function usePartnerNombaTransactions(partnerId: string, enabled: boolean) {
   return useQuery({
     queryKey: ["nomba-transactions", partnerId],

@@ -1,30 +1,8 @@
 import crypto from "crypto";
-import {
-  OverpaymentCase,
-  Partner,
-  PartnerNotification,
-  Payment,
-  WebhookEvent,
-} from "../models";
+import { Partner, Payment, WebhookEvent } from "../models";
 import { applyPaymentToLedger, nairaToKobo } from "./ledger";
 import { applyPaymentSideEffects } from "./paymentEffects";
-
-type NombaWebhookPayload = {
-  event_type?: string;
-  requestId?: string;
-  data?: {
-    transaction?: {
-      type?: string;
-      transactionId?: string;
-      sessionId?: string;
-      transactionAmount?: number;
-      aliasAccountNumber?: string;
-    };
-    customer?: {
-      senderName?: string;
-    };
-  };
-};
+import { parseNombaWebhookPayload } from "./webhookPayload";
 
 const PAYMENT_EVENTS = new Set([
   "payment_success",
@@ -51,32 +29,40 @@ export function verifyWebhookSignature(
 }
 
 export async function handleNombaWebhook(
-  payload: NombaWebhookPayload,
+  payload: unknown,
   rawPayload: string
 ): Promise<{ ok: boolean; message: string }> {
-  const requestId =
-    payload.requestId ??
-    payload.data?.transaction?.transactionId ??
-    crypto.randomUUID();
+  const fields = parseNombaWebhookPayload(payload);
 
-  const existing = await WebhookEvent.findOne({ where: { requestId } });
+  const existing = await WebhookEvent.findOne({
+    where: { requestId: fields.requestId },
+  });
   if (existing) {
     return { ok: true, message: "duplicate ignored" };
   }
 
-  const eventType = payload.event_type ?? "payment_success";
-
-  if (!PAYMENT_EVENTS.has(eventType) && payload.event_type) {
-    await WebhookEvent.create({ requestId, eventType });
-    return { ok: true, message: `ignored event: ${eventType}` };
+  if (!PAYMENT_EVENTS.has(fields.eventType) && fields.eventType) {
+    await WebhookEvent.create({
+      requestId: fields.requestId,
+      eventType: fields.eventType,
+    });
+    return { ok: true, message: `ignored event: ${fields.eventType}` };
   }
 
-  const tx = payload.data?.transaction;
-  const amountKobo = nairaToKobo(Number(tx?.transactionAmount ?? 0));
-  const vaNumber = tx?.aliasAccountNumber ?? null;
+  if (!fields.virtualAccountNumber && fields.amountNaira <= 0) {
+    await WebhookEvent.create({
+      requestId: fields.requestId,
+      eventType: fields.eventType,
+    });
+    console.warn("[webhook] ignored empty payload");
+    return { ok: true, message: "ignored empty webhook payload" };
+  }
 
-  const partner = vaNumber
-    ? await Partner.findOne({ where: { virtualAccountNumber: vaNumber } })
+  const amountKobo = nairaToKobo(fields.amountNaira);
+  const partner = fields.virtualAccountNumber
+    ? await Partner.findOne({
+        where: { virtualAccountNumber: fields.virtualAccountNumber },
+      })
     : null;
 
   let classification: Payment["classification"] = "unmatched";
@@ -91,11 +77,11 @@ export async function handleNombaWebhook(
     partnerId: partner?.id ?? null,
     amountKobo,
     classification,
-    nombaTransactionId: tx?.transactionId ?? null,
-    sessionId: tx?.sessionId ?? null,
-    senderName: payload.data?.customer?.senderName ?? null,
-    virtualAccountNumber: vaNumber,
-    requestId,
+    nombaTransactionId: fields.transactionId,
+    sessionId: fields.sessionId,
+    senderName: fields.senderName,
+    virtualAccountNumber: fields.virtualAccountNumber,
+    requestId: fields.requestId,
     rawPayload,
   });
 
@@ -108,7 +94,16 @@ export async function handleNombaWebhook(
     );
   }
 
-  await WebhookEvent.create({ requestId, eventType });
+  await WebhookEvent.create({
+    requestId: fields.requestId,
+    eventType: fields.eventType,
+  });
+
+  console.log("[webhook]", fields.eventType, {
+    va: fields.virtualAccountNumber,
+    amountNaira: fields.amountNaira,
+    partner: partner?.fullName ?? "unmatched",
+  });
 
   return {
     ok: true,
@@ -116,4 +111,78 @@ export async function handleNombaWebhook(
       ? `payment applied to ${partner.fullName}`
       : "unmatched payment recorded",
   };
+}
+
+export async function reprocessUnmatchedPayments(): Promise<{
+  fixed: number;
+  skipped: number;
+  purged: number;
+  total: number;
+}> {
+  const rows = await Payment.findAll({
+    where: { classification: "unmatched" },
+    order: [["createdAt", "ASC"]],
+  });
+
+  let fixed = 0;
+  let skipped = 0;
+
+  for (const payment of rows) {
+    if (!payment.rawPayload) {
+      skipped += 1;
+      continue;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(payment.rawPayload);
+    } catch {
+      skipped += 1;
+      continue;
+    }
+
+    const fields = parseNombaWebhookPayload(parsed);
+    if (!fields.virtualAccountNumber || fields.amountNaira <= 0) {
+      skipped += 1;
+      continue;
+    }
+
+    const partner = await Partner.findOne({
+      where: { virtualAccountNumber: fields.virtualAccountNumber },
+    });
+    if (!partner) {
+      skipped += 1;
+      continue;
+    }
+
+    const amountKobo = nairaToKobo(fields.amountNaira);
+    const { classification, excessKobo } = await applyPaymentToLedger(
+      partner.id,
+      amountKobo
+    );
+
+    payment.partnerId = partner.id;
+    payment.amountKobo = amountKobo;
+    payment.classification = classification;
+    payment.virtualAccountNumber = fields.virtualAccountNumber;
+    payment.senderName = fields.senderName;
+    payment.nombaTransactionId = fields.transactionId;
+    payment.sessionId = fields.sessionId;
+    await payment.save();
+
+    await applyPaymentSideEffects(
+      partner.id,
+      payment.id,
+      classification,
+      excessKobo
+    );
+
+    fixed += 1;
+  }
+
+  const purged = await Payment.destroy({
+    where: { classification: "unmatched", amountKobo: 0 },
+  });
+
+  return { fixed, skipped, purged, total: rows.length };
 }

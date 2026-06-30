@@ -39,11 +39,13 @@ export function AlertSection({
   title,
   description,
   tone,
+  actions,
   children,
 }: {
   title: string;
   description?: string;
   tone: "info" | "warning" | "danger" | "success";
+  actions?: React.ReactNode;
   children?: React.ReactNode;
 }) {
   const accentBorder = {
@@ -55,11 +57,14 @@ export function AlertSection({
 
   return (
     <section className={`card overflow-hidden border-l-[3px] ${accentBorder[tone]}`}>
-      <div className="border-b border-white/40 px-5 py-4">
-        <h2 className="section-title">{title}</h2>
-        {description ? (
-          <p className="mt-1 text-sm text-text-secondary">{description}</p>
-        ) : null}
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-white/40 px-5 py-4">
+        <div>
+          <h2 className="section-title">{title}</h2>
+          {description ? (
+            <p className="mt-1 text-sm text-text-secondary">{description}</p>
+          ) : null}
+        </div>
+        {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
       </div>
       {children ? <div className="p-4">{children}</div> : null}
     </section>
