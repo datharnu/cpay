@@ -80,7 +80,7 @@ export default function PartnerDetailPage({
             <Row label="Phone" value={partner.phone} />
             <Row label="Monthly commitment" value={formatMoney(partner.monthlyCommitment)} />
             <Row
-              label="Arrears"
+              label="Outstanding"
               value={
                 partner.arrears > 0 ? (
                   <span className="font-semibold text-danger">{formatMoney(partner.arrears)}</span>

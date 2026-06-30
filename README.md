@@ -42,22 +42,23 @@ ngrok http 3001
 
 Submit webhook URL + sub-account ID: https://forms.gle/hKfBRHZiTGvU7LC59
 
-Set `WEBHOOK_URL` in `cpay-api/.env`.
+Set `WEBHOOK_URL` in `cpay-api/.env` (and on Render).
 
 **Stop** the old `nomba-sandbox-test` server if it is still on port 3001.
 
-### Sandbox testing (no real money)
+### Testing payments (real sandbox transfers)
 
-After you have confirmed at least one real webhook end-to-end, use the simulator for day-to-day dev:
+Judges and demos should use **real Nomba sandbox bank transfers**, not fake webhook POSTs.
 
-```bash
-cd cpay-api
-npm run simulate:webhook -- --va YOUR_PARTNER_NUBAN --amount 50
-```
+1. Deploy the API with a stable URL (e.g. Render) and set:
+   - `WEBHOOK_URL=https://YOUR-API.onrender.com/webhooks/nomba`
+   - `NOMBA_WEBHOOK_SECRET` from the Nomba dashboard (if provided)
+2. Submit the same webhook URL in the hackathon form: https://forms.gle/hKfBRHZiTGvU7LC59
+3. In the CPay dashboard, open a partnership member and copy their **dedicated account** (NUBAN).
+4. Send **₦100** (or their monthly amount) from the Nomba sandbox transfer flow to that account.
+5. Nomba POSTs `payment_success` to `/webhooks/nomba` — CPay reconciles automatically.
 
-This POSTs a signed `payment_success` payload (`vact_transfer`) to `/webhooks/nomba` — same path Nomba uses. Set `NOMBA_WEBHOOK_SECRET` in `.env` (or leave unset to skip verification locally).
-
-Optional: `--partner-id <uuid>` instead of `--va`, `--sender "Name"`, `--url http://localhost:3001/webhooks/nomba`.
+If a transfer cleared in Nomba but the dashboard is slow to update, use **Import from Nomba** or **Sync with Nomba** on the home page.
 
 ## Nomba APIs used (Virtual Accounts track)
 

@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { AppShell, formatMoney, StatusBadge } from "@/components/shared/AppShell";
+import { AppShell, formatMoney } from "@/components/shared/AppShell";
+import { PartnersTable } from "@/components/partners/PartnersTable";
+import { DEMO_PARTNERS } from "@/data/demoPartners";
 import {
   AlertListItem,
   AlertSection,
   EmptyState,
   LiveBadge,
   PageSection,
+  PartnersTableSkeleton,
   ProblemHero,
   StatCard,
 } from "@/components/shared/ui";
@@ -46,7 +49,7 @@ export default function DashboardPage() {
           }
         />
         <StatCard
-          label="Total arrears"
+          label="Total outstanding"
           value={summaryLoading ? "…" : formatMoney(summary?.totalArrears ?? 0)}
           tone={(summary?.totalArrears ?? 0) > 0 ? "danger" : "success"}
           icon={
@@ -194,9 +197,10 @@ export default function DashboardPage() {
 
       <PageSection
         title="Partnership members"
-        description="Each member has a dedicated Nomba virtual account for monthly partnership payments."
+        description="Live Nomba accounts on this overview. View all members for simulated scale preview."
         actions={
           <>
+       
             <button
               type="button"
               onClick={() => importMissing.mutate()}
@@ -220,11 +224,7 @@ export default function DashboardPage() {
         }
       >
         {partnersLoading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-12 animate-pulse rounded-lg bg-surface-muted" />
-            ))}
-          </div>
+          <PartnersTableSkeleton rows={2} />
         ) : !partners?.length ? (
           <EmptyState
             title="No members yet"
@@ -233,63 +233,24 @@ export default function DashboardPage() {
             actionLabel="Add first partner"
           />
         ) : (
-          <div className="-mx-6 overflow-x-auto">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Dedicated account</th>
-                  <th>Monthly</th>
-                  <th>Arrears</th>
-                  <th>Status</th>
-                  <th className="text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {partners.map((partner) => (
-                  <tr key={partner.id}>
-                    <td className="font-medium">{partner.fullName}</td>
-                    <td>
-                      <span className="inline-flex rounded-md bg-primary-subtle px-2 py-1 font-mono text-xs font-medium text-primary">
-                        {partner.virtualAccountNumber ?? "—"}
-                      </span>
-                    </td>
-                    <td className="text-text-secondary">{formatMoney(partner.monthlyCommitment)}</td>
-                    <td>
-                      {partner.arrears > 0 ? (
-                        <span className="font-semibold text-danger">{formatMoney(partner.arrears)}</span>
-                      ) : (
-                        <span className="font-medium text-green-600">Up to date</span>
-                      )}
-                    </td>
-                    <td>
-                      {partner.monthsMissed > 0 ? (
-                        <StatusBadge status="missed" />
-                      ) : partner.arrears > 0 ? (
-                        <StatusBadge status="partial" />
-                      ) : (
-                        <StatusBadge status="paid" />
-                      )}
-                    </td>
-                    <td className="text-right">
-                      <Link
-                        href={`/partners/${partner.id}`}
-                        className="font-medium text-primary hover:text-primary-hover"
-                      >
-                        View →
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <PartnersTable
+              partners={partners.map((p) => ({ ...p, isSimulated: false }))}
+            />
+            <p className="mt-4 text-center text-sm text-text-secondary">
+              Showing {partners.length} live member{partners.length === 1 ? "" : "s"}.{" "}
+              <Link href="/partners" className="font-medium text-primary hover:underline">
+                View all members →
+              </Link>{" "}
+              for simulated scale preview ({DEMO_PARTNERS.length} demo rows).
+            </p>
+          </>
         )}
       </PageSection>
 
       <p className="text-center text-xs text-text-muted">
-        Payments appear only from Nomba webhooks or Nomba Transactions API sync — never
-        simulated in the UI.
+        Live payments come from Nomba webhooks or Transactions API sync. Simulated
+        member rows on the members page are preview-only for demo scale.
       </p>
     </AppShell>
   );

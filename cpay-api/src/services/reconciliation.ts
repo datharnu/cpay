@@ -32,15 +32,6 @@ const PAYMENT_EVENTS = new Set([
   "payout_success",
 ]);
 
-export function signWebhookBody(rawBody: Buffer | string): string {
-  const secret = process.env.NOMBA_WEBHOOK_SECRET;
-  if (!secret) {
-    throw new Error("NOMBA_WEBHOOK_SECRET is required to sign webhook payloads");
-  }
-  const body = typeof rawBody === "string" ? Buffer.from(rawBody) : rawBody;
-  return crypto.createHmac("sha256", secret).update(body).digest("hex");
-}
-
 export function verifyWebhookSignature(
   rawBody: Buffer,
   signature: string | undefined
@@ -51,34 +42,12 @@ export function verifyWebhookSignature(
   if (!secret) return true;
   if (!signature) return false;
 
-  return signature === signWebhookBody(rawBody);
-}
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(rawBody)
+    .digest("hex");
 
-export function buildVaFundingWebhookPayload(input: {
-  virtualAccountNumber: string;
-  amountNaira: number;
-  senderName?: string;
-  requestId?: string;
-}): NombaWebhookPayload {
-  const requestId = input.requestId ?? `sim_${crypto.randomUUID()}`;
-  const transactionId = `SIM-TX-${requestId}`;
-
-  return {
-    event_type: "payment_success",
-    requestId,
-    data: {
-      transaction: {
-        type: "vact_transfer",
-        transactionId,
-        sessionId: `SIM-SES-${requestId}`,
-        transactionAmount: input.amountNaira,
-        aliasAccountNumber: input.virtualAccountNumber,
-      },
-      customer: {
-        senderName: input.senderName ?? "Sandbox Test Payer",
-      },
-    },
-  };
+  return signature === expected;
 }
 
 export async function handleNombaWebhook(

@@ -9,8 +9,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "db:sync": "tsx src/scripts/syncDb.ts",
-    "simulate:webhook": "tsx src/scripts/simulate-webhook.ts"
+    "db:sync": "tsx src/scripts/syncDb.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

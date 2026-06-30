@@ -12,8 +12,8 @@ import { nombaWebhookHandler } from "./routes/webhooks";
 import { seedSandboxPartnersIfEmpty } from "./services/seedSandboxPartners";
 
 async function main() {
-  await sequelize.sync();
   await configureSqlite();
+  await sequelize.sync();
 
   if (env.seedSandboxPartners) {
     await seedSandboxPartnersIfEmpty();

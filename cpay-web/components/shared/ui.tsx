@@ -151,6 +151,101 @@ export function PageSection({
   );
 }
 
+function SkeletonBar({
+  className = "",
+}: {
+  className?: string;
+}) {
+  return (
+    <div
+      className={`skeleton-shimmer rounded-lg bg-white/25 ${className}`}
+      aria-hidden
+    />
+  );
+}
+
+export function PartnersTableSkeleton({ rows = 3 }: { rows?: number }) {
+  const columns = ["Name", "Dedicated account", "Monthly", "Outstanding", "Status", "Action"];
+
+  return (
+    <div className="space-y-4" aria-busy="true" aria-label="Loading partnership members">
+      <div className="flex items-center gap-3 rounded-2xl liquid-glass liquid-glass-subtle px-4 py-3">
+        <span className="relative flex h-8 w-8 shrink-0 items-center justify-center">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/20" />
+          <span className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-primary-muted text-primary">
+            <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="3"
+              />
+              <path
+                className="opacity-90"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
+            </svg>
+          </span>
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-text-primary">Loading partnership members</p>
+          <p className="text-xs text-text-muted">Fetching accounts from Nomba…</p>
+        </div>
+      </div>
+
+      <div className="-mx-6 overflow-x-auto px-6">
+        <table className="data-table">
+          <thead>
+            <tr>
+              {columns.map((col) => (
+                <th
+                  key={col}
+                  className={col === "Action" ? "text-right" : undefined}
+                >
+                  {col}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: rows }).map((_, i) => (
+              <tr key={i} className="animate-pulse" style={{ animationDelay: `${i * 120}ms` }}>
+                <td>
+                  <div className="flex items-center gap-3">
+                    <SkeletonBar className="h-10 w-10 shrink-0 rounded-xl" />
+                    <div className="space-y-2">
+                      <SkeletonBar className="h-3.5 w-32" />
+                      <SkeletonBar className="h-2.5 w-20" />
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <SkeletonBar className="h-7 w-28 rounded-md" />
+                </td>
+                <td>
+                  <SkeletonBar className="h-3.5 w-16" />
+                </td>
+                <td>
+                  <SkeletonBar className="h-3.5 w-20" />
+                </td>
+                <td>
+                  <SkeletonBar className="h-6 w-16 rounded-full" />
+                </td>
+                <td className="text-right">
+                  <SkeletonBar className="ml-auto h-3.5 w-12" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 const PROBLEM_BEFORE = [
   "500+ partners pay into one church account",
   "Finance can't tell who sent each transfer",
@@ -160,7 +255,7 @@ const PROBLEM_BEFORE = [
 const PROBLEM_AFTER = [
   "Each member gets a dedicated Nomba virtual account",
   "Webhooks identify the payer and update the ledger instantly",
-  "Paid, partial, arrears, and overpayments tracked per person",
+  "Paid, partial, outstanding, and overpayments tracked per person",
 ];
 
 export function ProblemHero({

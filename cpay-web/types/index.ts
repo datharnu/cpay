@@ -14,6 +14,10 @@ export type PartnerListItem = {
   monthsMissed: number;
 };
 
+export type PartnerDisplayItem = PartnerListItem & {
+  isSimulated?: boolean;
+};
+
 export type DashboardSummary = {
   totalPartners: number;
   activePartners: number;

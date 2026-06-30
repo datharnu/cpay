@@ -18,6 +18,7 @@ services:
         value: "true"
       - key: SKIP_WEBHOOK_SIGNATURE
         value: "true"
+        # Sandbox fallback when NOMBA_WEBHOOK_SECRET is not set. Real Nomba webhooks still work.
       - key: CORS_ORIGIN
         value: http://localhost:3000
       - key: NOMBA_BASE_URL

@@ -15,6 +15,15 @@ const navItems = [
     ),
   },
   {
+    name: "Partnership members",
+    href: "/partners",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766m12.748 0c-.995.608-2.085.96-3.228 1.066M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+      </svg>
+    ),
+  },
+  {
     name: "Add partner",
     href: "/partners/new",
     icon: (
@@ -24,6 +33,17 @@ const navItems = [
     ),
   },
 ];
+
+function isNavActive(pathname: string, href: string): boolean {
+  if (href === "/") return pathname === "/";
+  if (href === "/partners") {
+    return (
+      pathname === "/partners" ||
+      (pathname.startsWith("/partners/") && !pathname.startsWith("/partners/new"))
+    );
+  }
+  return pathname.startsWith(href);
+}
 
 export function AppShell({
   children,
@@ -61,10 +81,7 @@ export function AppShell({
 
             <nav className="flex flex-1 flex-col gap-1 p-4">
               {navItems.map((item) => {
-                const isActive =
-                  item.href === "/"
-                    ? pathname === "/"
-                    : pathname.startsWith(item.href);
+                const isActive = isNavActive(pathname, item.href);
 
                 return (
                   <Link
@@ -99,6 +116,9 @@ export function AppShell({
               <div className="flex items-center justify-end gap-2 px-4 py-3 sm:px-6">
                 <Link href="/" className="btn-ghost">
                   Home
+                </Link>
+                <Link href="/partners" className="btn-ghost">
+                  Members
                 </Link>
                 <Link href="/partners/new" className="btn-primary">
                   Add
