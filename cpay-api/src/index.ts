@@ -10,6 +10,7 @@ import { partnersRouter } from "./routes/partners";
 import { reconciliationRouter } from "./routes/reconciliation";
 import { nombaWebhookHandler } from "./routes/webhooks";
 import { seedSandboxPartnersIfEmpty } from "./services/seedSandboxPartners";
+import { auditSandboxWebhookSetup } from "./services/auditSandboxWebhook";
 
 async function main() {
   await configureSqlite();
@@ -17,6 +18,7 @@ async function main() {
 
   if (env.seedSandboxPartners) {
     await seedSandboxPartnersIfEmpty();
+    await auditSandboxWebhookSetup();
   }
 
   const app = express();
