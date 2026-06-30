@@ -2,7 +2,10 @@ import crypto from "crypto";
 import { Partner, Payment, WebhookEvent } from "../models";
 import { applyPaymentToLedger, nairaToKobo } from "./ledger";
 import { applyPaymentSideEffects } from "./paymentEffects";
-import { parseNombaWebhookPayload } from "./webhookPayload";
+import {
+  matchKnownVirtualAccount,
+  parseNombaWebhookPayload,
+} from "./webhookPayload";
 
 const PAYMENT_EVENTS = new Set([
   "payment_success",
@@ -32,7 +35,20 @@ export async function handleNombaWebhook(
   payload: unknown,
   rawPayload: string
 ): Promise<{ ok: boolean; message: string }> {
-  const fields = parseNombaWebhookPayload(payload);
+  console.log("[webhook raw]", rawPayload.slice(0, 8000));
+
+  let fields = parseNombaWebhookPayload(payload);
+
+  if (!fields.virtualAccountNumber) {
+    const partners = await Partner.findAll();
+    const known = partners
+      .map((p) => p.virtualAccountNumber)
+      .filter((va): va is string => Boolean(va));
+    const matchedVa = matchKnownVirtualAccount(payload, known);
+    if (matchedVa) {
+      fields = { ...fields, virtualAccountNumber: matchedVa };
+    }
+  }
 
   const existing = await WebhookEvent.findOne({
     where: { requestId: fields.requestId },

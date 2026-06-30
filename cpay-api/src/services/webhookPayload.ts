@@ -27,6 +27,62 @@ function pickNaira(...values: unknown[]): number {
   return 0;
 }
 
+function collectRecords(value: unknown, out: JsonRecord[] = []): JsonRecord[] {
+  const record = asRecord(value);
+  if (!record) return out;
+
+  out.push(record);
+  for (const child of Object.values(record)) {
+    if (child && typeof child === "object") {
+      collectRecords(child, out);
+    }
+  }
+  return out;
+}
+
+function pickFromRecords(
+  records: JsonRecord[],
+  keys: string[]
+): string | null {
+  for (const record of records) {
+    for (const key of keys) {
+      const value = pickString(record[key]);
+      if (value) return value;
+    }
+  }
+  return null;
+}
+
+function pickAmountFromRecords(records: JsonRecord[]): number {
+  const keys = [
+    "transactionAmount",
+    "transaction_amount",
+    "amount",
+    "amountReceived",
+    "amount_received",
+  ];
+
+  for (const record of records) {
+    for (const key of keys) {
+      const raw = record[key];
+      const n = pickNaira(raw);
+      if (n > 0) {
+        if (
+          typeof raw === "string" &&
+          /^\d+$/.test(raw) &&
+          n >= 1000 &&
+          n % 100 === 0
+        ) {
+          const asKobo = n / 100;
+          if (asKobo > 0 && asKobo <= 150) return asKobo;
+        }
+        return n;
+      }
+    }
+  }
+  return 0;
+}
+
 /** Normalize Nomba webhook JSON into fields CPay uses for reconciliation. */
 export function parseNombaWebhookPayload(payload: unknown): {
   eventType: string;
@@ -38,45 +94,49 @@ export function parseNombaWebhookPayload(payload: unknown): {
   sessionId: string | null;
 } {
   const root = asRecord(payload) ?? {};
-  const data = asRecord(root.data) ?? {};
-  const tx = asRecord(data.transaction) ?? asRecord(data.virtual_account) ?? {};
-  const customer = asRecord(data.customer) ?? asRecord(data.sender) ?? {};
+  const records = collectRecords(payload);
 
-  const virtualAccountNumber = pickString(
-    tx.aliasAccountNumber,
-    tx.bankAccountNumber,
-    tx.virtualAccountNumber,
-    tx.accountNumber,
-    data.aliasAccountNumber,
-    data.bankAccountNumber,
-    data.virtualAccountNumber
-  );
+  const virtualAccountNumber = pickFromRecords(records, [
+    "aliasAccountNumber",
+    "alias_account_number",
+    "bankAccountNumber",
+    "bank_account_number",
+    "virtualAccountNumber",
+    "virtual_account_number",
+    "accountNumber",
+    "account_number",
+    "customerBillerId",
+  ]);
 
-  const amountNaira = pickNaira(
-    tx.transactionAmount,
-    tx.amount,
-    data.transactionAmount,
-    data.amount,
-    root.amount
-  );
+  const amountNaira = pickAmountFromRecords(records);
 
-  const transactionId = pickString(tx.transactionId, tx.id);
-  const sessionId = pickString(tx.sessionId);
+  const transactionId = pickFromRecords(records, [
+    "transactionId",
+    "transaction_id",
+    "id",
+  ]);
+  const sessionId = pickFromRecords(records, ["sessionId", "session_id"]);
 
   const requestId =
-    pickString(root.requestId, root.request_id, transactionId, sessionId) ??
-    `nomba_${Date.now()}`;
+    pickString(
+      root.requestId,
+      root.request_id,
+      transactionId,
+      sessionId
+    ) ?? `nomba_${Date.now()}`;
 
   const eventType =
-    pickString(root.event_type, root.eventType, root.type) ?? "payment_success";
+    pickString(root.event_type, root.eventType, root.type) ??
+    "payment_success";
 
-  const senderName = pickString(
-    customer.senderName,
-    customer.accountName,
-    customer.name,
-    tx.senderName,
-    tx.narration
-  );
+  const senderName = pickFromRecords(records, [
+    "senderName",
+    "sender_name",
+    "accountName",
+    "account_name",
+    "name",
+    "narration",
+  ]);
 
   return {
     eventType,
@@ -87,4 +147,16 @@ export function parseNombaWebhookPayload(payload: unknown): {
     transactionId,
     sessionId,
   };
+}
+
+/** Last resort: find a known partner VA anywhere in the webhook JSON blob. */
+export function matchKnownVirtualAccount(
+  payload: unknown,
+  knownAccounts: string[]
+): string | null {
+  const blob = JSON.stringify(payload);
+  for (const account of knownAccounts) {
+    if (account && blob.includes(account)) return account;
+  }
+  return null;
 }
