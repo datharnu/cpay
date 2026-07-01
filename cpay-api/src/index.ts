@@ -12,15 +12,34 @@ import { paymentsRouter } from "./routes/payments";
 import { reconciliationRouter } from "./routes/reconciliation";
 import { nombaWebhookHandler } from "./routes/webhooks";
 import { seedSandboxPartnersIfEmpty } from "./services/seedSandboxPartners";
-import { auditSandboxWebhookSetup } from "./services/auditSandboxWebhook";
+import { syncPartnerVirtualAccountWebhooks } from "./services/syncPartnerWebhooks";
+import { importMissingNombaPayments } from "./services/importNombaPayments";
 
 async function main() {
   await configureSqlite();
   await sequelize.sync();
 
+  let freshlySeeded = false;
   if (env.seedSandboxPartners) {
-    await seedSandboxPartnersIfEmpty();
-    await auditSandboxWebhookSetup();
+    freshlySeeded = await seedSandboxPartnersIfEmpty();
+  }
+
+  if (env.nomba.webhookUrl) {
+    await syncPartnerVirtualAccountWebhooks();
+  }
+
+  if (freshlySeeded) {
+    try {
+      const result = await importMissingNombaPayments();
+      console.log(
+        `[boot import] Restored ${result.imported} payment(s) from Nomba sub-account (${result.skipped} skipped).`
+      );
+    } catch (err) {
+      console.warn(
+        "[boot import] Could not import Nomba payments on startup:",
+        err instanceof Error ? err.message : err
+      );
+    }
   }
 
   const app = express();

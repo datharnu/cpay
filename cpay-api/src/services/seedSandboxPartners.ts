@@ -24,9 +24,9 @@ const SANDBOX_PARTNERS = [
   },
 ] as const;
 
-export async function seedSandboxPartnersIfEmpty(): Promise<void> {
+export async function seedSandboxPartnersIfEmpty(): Promise<boolean> {
   const count = await Partner.count();
-  if (count > 0) return;
+  if (count > 0) return false;
 
   for (const row of SANDBOX_PARTNERS) {
     const partner = await Partner.create({ ...row, status: "active" });
@@ -34,4 +34,5 @@ export async function seedSandboxPartnersIfEmpty(): Promise<void> {
   }
 
   console.log(`Seeded ${SANDBOX_PARTNERS.length} sandbox partners (existing Nomba VAs).`);
+  return true;
 }

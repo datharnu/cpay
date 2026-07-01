@@ -1,4 +1,4 @@
-# CPay API on Render — stable webhook URL for Nomba sandbox
+# CPay API on Render — stable webhook URL for Nomba
 # Docs: https://render.com/docs/blueprint-spec
 services:
   - type: web
@@ -9,12 +9,15 @@ services:
     startCommand: npm start
     healthCheckPath: /health
     plan: free
+    disk:
+      name: cpay-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        value: /tmp/cpay.sqlite
-        # Free tier: /tmp is wiped on each deploy — payments reset; avoid redeploying during demo.
+        value: /var/data/cpay.sqlite
       - key: SEED_SANDBOX_PARTNERS
         value: "true"
       - key: SKIP_WEBHOOK_SIGNATURE

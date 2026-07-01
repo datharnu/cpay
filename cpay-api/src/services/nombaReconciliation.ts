@@ -2,7 +2,7 @@ import { Op } from "sequelize";
 import { Partner, Payment } from "../models";
 import { nairaToKobo } from "./ledger";
 import {
-  fetchAccountTransactions,
+  fetchSubAccountTransactions,
   fetchVirtualAccount,
 } from "./nombaClient";
 
@@ -13,6 +13,8 @@ export type ReconciliationDrift = {
   nombaTransactionId?: string;
   sessionId?: string;
   amountNaira: number;
+  senderName?: string | null;
+  timeCreated?: string | null;
   issue: "orphan_on_nomba" | "orphan_local" | "amount_mismatch";
   localPaymentId?: string;
 };
@@ -31,13 +33,23 @@ function parseNombaTxAmountNaira(raw: unknown): number {
   return n;
 }
 
+function isInboundVaCredit(tx: Record<string, unknown>): boolean {
+  if (tx.status !== "SUCCESS") return false;
+  if (tx.entryType && tx.entryType !== "CREDIT") return false;
+
+  const type = String(tx.type ?? tx.transactionType ?? "");
+  if (type && type !== "vact_transfer") return false;
+
+  return true;
+}
+
 function findPartnerVaInTx(
   partnerVas: Map<string, Partner>,
   tx: Record<string, unknown>
 ): Partner | null {
-  const blob = JSON.stringify(tx);
-  for (const [va, partner] of partnerVas) {
-    if (blob.includes(va)) return partner;
+  const recipient = String(tx.recipientAccountNumber ?? "");
+  if (recipient && partnerVas.has(recipient)) {
+    return partnerVas.get(recipient) ?? null;
   }
 
   const direct = String(
@@ -46,7 +58,16 @@ function findPartnerVaInTx(
       tx.virtualAccountNumber ??
       ""
   );
-  return partnerVas.get(direct) ?? null;
+  if (direct && partnerVas.has(direct)) {
+    return partnerVas.get(direct) ?? null;
+  }
+
+  const blob = JSON.stringify(tx);
+  for (const [va, partner] of partnerVas) {
+    if (blob.includes(va)) return partner;
+  }
+
+  return null;
 }
 
 export async function verifyPartnerVirtualAccount(partnerId: string) {
@@ -73,10 +94,13 @@ export async function getPartnerNombaTransactions(partnerId: string) {
     throw new Error("Partner has no virtual account");
   }
 
-  const { data } = await fetchAccountTransactions();
+  const { data } = await fetchSubAccountTransactions();
   const rows = (data?.results ?? []).filter((tx) => {
-    const blob = JSON.stringify(tx);
-    return blob.includes(partner.virtualAccountNumber!);
+    if (!isInboundVaCredit(tx as Record<string, unknown>)) return false;
+    return (
+      tx.recipientAccountNumber === partner.virtualAccountNumber ||
+      JSON.stringify(tx).includes(partner.virtualAccountNumber!)
+    );
   });
 
   return {
@@ -111,17 +135,19 @@ export async function reconcileWithNomba(): Promise<{
 
   let nombaRows: Array<Record<string, unknown>> = [];
   try {
-    const { data } = await fetchAccountTransactions();
+    const { data } = await fetchSubAccountTransactions();
     nombaRows = (data?.results ?? []) as Array<Record<string, unknown>>;
   } catch (err) {
-    console.warn("Reconcile: could not fetch Nomba account transactions:", err);
+    console.warn("Reconcile: could not fetch Nomba sub-account transactions:", err);
   }
 
   for (const tx of nombaRows) {
+    if (!isInboundVaCredit(tx)) continue;
+
     const partner = findPartnerVaInTx(partnerVas, tx);
     if (!partner?.virtualAccountNumber) continue;
 
-    const txId = String(tx.transactionId ?? tx.id ?? tx.sessionId ?? "");
+    const txId = String(tx.id ?? tx.transactionId ?? tx.sessionId ?? "");
     if (!txId) continue;
     seenNombaIds.add(txId);
 
@@ -132,12 +158,17 @@ export async function reconcileWithNomba(): Promise<{
 
     const local = localPayments.find(
       (p) =>
+        p.nombaTransactionId === tx.id ||
         p.nombaTransactionId === tx.transactionId ||
-        p.sessionId === tx.sessionId ||
-        p.nombaTransactionId === tx.id
+        (tx.sessionId && p.sessionId === tx.sessionId) ||
+        p.nombaTransactionId === txId
     );
 
     const amountKobo = nairaToKobo(amountNaira);
+    const senderName = String(
+      tx.senderName ?? tx.ktaSenderName ?? ""
+    ).trim() || null;
+    const timeCreated = String(tx.timeCreated ?? "") || null;
 
     if (!local) {
       drifts.push({
@@ -147,6 +178,8 @@ export async function reconcileWithNomba(): Promise<{
         nombaTransactionId: txId,
         sessionId: String(tx.sessionId ?? ""),
         amountNaira,
+        senderName,
+        timeCreated,
         issue: "orphan_on_nomba",
       });
     } else if (local.amountKobo !== amountKobo) {
@@ -157,6 +190,8 @@ export async function reconcileWithNomba(): Promise<{
         nombaTransactionId: txId,
         sessionId: String(tx.sessionId ?? ""),
         amountNaira,
+        senderName,
+        timeCreated,
         issue: "amount_mismatch",
         localPaymentId: local.id,
       });
@@ -182,7 +217,7 @@ export async function reconcileWithNomba(): Promise<{
 
   return {
     drifts,
-    nombaCount: nombaRows.length,
+    nombaCount: nombaRows.filter((tx) => isInboundVaCredit(tx)).length,
     localCount: localPayments.length,
     syncedAt: new Date().toISOString(),
   };

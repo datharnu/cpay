@@ -198,13 +198,21 @@ export async function listVirtualAccounts(filters?: {
 }
 
 export type NombaVirtualTransaction = {
+  id?: string;
   transactionId?: string;
   sessionId?: string;
   status?: string;
   amount?: string;
+  transactionAmount?: string;
   senderName?: string;
   aliasAccountNumber?: string;
+  recipientAccountNumber?: string;
+  bankAccountNumber?: string;
+  virtualAccountNumber?: string;
   entryType?: string;
+  type?: string;
+  transactionType?: string;
+  timeCreated?: string;
 };
 
 /** GET /v1/transactions/virtual */
@@ -226,15 +234,44 @@ export async function fetchVirtualAccountTransactions(
 /** GET /v1/transactions/accounts — parent account transactions */
 export async function fetchAccountTransactions(
   dateFrom?: string,
-  dateTo?: string
+  dateTo?: string,
+  limit = 100
 ) {
-  const params = new URLSearchParams();
+  const params = new URLSearchParams({ limit: String(limit) });
   if (dateFrom) params.set("dateFrom", dateFrom);
   if (dateTo) params.set("dateTo", dateTo);
 
-  const qs = params.toString();
   return nombaRequest<{ results: NombaVirtualTransaction[] }>(
-    `/v1/transactions/accounts${qs ? `?${qs}` : ""}`
+    `/v1/transactions/accounts?${params.toString()}`
+  );
+}
+
+/** GET /v1/transactions/accounts/{subAccountId} — VA inbound payments land here */
+export async function fetchSubAccountTransactions(
+  dateFrom?: string,
+  dateTo?: string,
+  limit = 200
+) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (dateFrom) params.set("dateFrom", dateFrom);
+  if (dateTo) params.set("dateTo", dateTo);
+
+  return nombaRequest<{ results: NombaVirtualTransaction[] }>(
+    `/v1/transactions/accounts/${env.nomba.subAccountId}?${params.toString()}`
+  );
+}
+
+/** PUT /v1/accounts/virtual/{identifier} — update callback URL, name, etc. */
+export async function updateVirtualAccount(
+  identifier: string,
+  input: { callbackUrl?: string; accountName?: string; newAccountRef?: string }
+) {
+  return nombaRequest<{ updated?: boolean }>(
+    `/v1/accounts/virtual/${identifier}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(input),
+    }
   );
 }
 
@@ -292,12 +329,14 @@ export async function sendBankTransfer(input: {
   narration: string;
   senderName?: string;
 }) {
+  // Nomba v2 bank transfers expect amount in naira (not kobo). CPay stores money in kobo internally.
+  const amountNaira = input.amountKobo / 100;
   return nombaRequest<Record<string, unknown>>(
     `/v2/transfers/bank/${env.nomba.subAccountId}`,
     {
       method: "POST",
       body: JSON.stringify({
-        amount: input.amountKobo,
+        amount: amountNaira,
         bankCode: input.bankCode,
         accountNumber: input.accountNumber,
         accountName: input.accountName,

@@ -1,10 +1,6 @@
 import { Op } from "sequelize";
 import { Partner, Payment } from "../models";
-import {
-  applyPaymentToLedger,
-  nairaToKobo,
-  rebuildPartnerLedger,
-} from "./ledger";
+import { applyPaymentToLedger, nairaToKobo, rebuildPartnerLedger } from "./ledger";
 import { applyPaymentSideEffects } from "./paymentEffects";
 import {
   reconcileWithNomba,
@@ -17,7 +13,13 @@ export async function importMissingNombaPayments(): Promise<{
   drifts: ReconciliationDrift[];
 }> {
   const { drifts } = await reconcileWithNomba();
-  const orphans = drifts.filter((d) => d.issue === "orphan_on_nomba");
+  const orphans = drifts
+    .filter((d) => d.issue === "orphan_on_nomba")
+    .sort((a, b) => {
+      const ta = a.timeCreated ? new Date(a.timeCreated).getTime() : 0;
+      const tb = b.timeCreated ? new Date(b.timeCreated).getTime() : 0;
+      return ta - tb;
+    });
 
   let imported = 0;
   let skipped = 0;
@@ -62,7 +64,7 @@ export async function importMissingNombaPayments(): Promise<{
       classification,
       nombaTransactionId: drift.nombaTransactionId,
       sessionId: drift.sessionId ?? null,
-      senderName: null,
+      senderName: drift.senderName ?? null,
       virtualAccountNumber: drift.virtualAccountNumber ?? partner.virtualAccountNumber,
       requestId,
       rawPayload: JSON.stringify({
