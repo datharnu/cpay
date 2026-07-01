@@ -19,6 +19,25 @@ async function parseNombaJson<T>(res: Response): Promise<NombaResponse<T>> {
   return res.json() as Promise<NombaResponse<T>>;
 }
 
+function nombaErrorMessage(
+  json: NombaResponse<unknown>,
+  path: string,
+  status: number
+): string {
+  if (json.description) return json.description;
+  if (json.message) return json.message;
+  const data = json.data as { description?: string; message?: string } | undefined;
+  if (data?.description) return data.description;
+  if (data?.message) return data.message;
+  return `Nomba request failed (${status}): ${path}`;
+}
+
+function assertNombaSuccess<T>(json: NombaResponse<T>, path: string): void {
+  if (json.code && json.code !== "00" && json.code !== "200") {
+    throw new Error(nombaErrorMessage(json, path, 200));
+  }
+}
+
 export async function getNombaToken(): Promise<string> {
   if (cache && Date.now() < cache.expiresAt - 5 * 60 * 1000) {
     return cache.accessToken;
@@ -119,11 +138,10 @@ export async function nombaRequest<T>(
   const json = await parseNombaJson<T>(res);
 
   if (!res.ok) {
-    throw new Error(
-      json.description ?? json.message ?? `Nomba request failed: ${path}`
-    );
+    throw new Error(nombaErrorMessage(json, path, res.status));
   }
 
+  assertNombaSuccess(json, path);
   return json;
 }
 
@@ -229,16 +247,22 @@ export async function requeryTransaction(sessionId: string) {
 
 /** POST /v1/transfers/bank/lookup */
 export async function lookupBankAccount(bankCode: string, accountNumber: string) {
-  return nombaRequest<{ accountName: string; accountNumber: string }>(
+  const json = await nombaRequest<{ accountName: string; accountNumber: string }>(
     "/v1/transfers/bank/lookup",
     {
       method: "POST",
       body: JSON.stringify({ bankCode, accountNumber }),
     }
   );
+
+  if (!json.data?.accountName) {
+    throw new Error("Bank lookup failed: account name not returned");
+  }
+
+  return json.data;
 }
 
-/** POST /v1/transfers/bank — refund overpayment / payout */
+/** POST /v2/transfers/bank/{subAccountId} — refund from hackathon sub-account balance */
 export async function sendBankTransfer(input: {
   amountKobo: number;
   bankCode: string;
@@ -248,18 +272,21 @@ export async function sendBankTransfer(input: {
   narration: string;
   senderName?: string;
 }) {
-  return nombaRequest<Record<string, unknown>>("/v1/transfers/bank", {
-    method: "POST",
-    body: JSON.stringify({
-      amount: input.amountKobo,
-      bankCode: input.bankCode,
-      accountNumber: input.accountNumber,
-      accountName: input.accountName,
-      merchantTxRef: input.merchantTxRef,
-      narration: input.narration,
-      senderName: input.senderName ?? "CPay Church Finance",
-    }),
-  });
+  return nombaRequest<Record<string, unknown>>(
+    `/v2/transfers/bank/${env.nomba.subAccountId}`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        amount: input.amountKobo,
+        bankCode: input.bankCode,
+        accountNumber: input.accountNumber,
+        accountName: input.accountName,
+        merchantTxRef: input.merchantTxRef,
+        narration: input.narration,
+        senderName: input.senderName ?? "CPay Church Finance",
+      }),
+    }
+  );
 }
 
 /** GET /v1/transfers/{merchantTxRef} */

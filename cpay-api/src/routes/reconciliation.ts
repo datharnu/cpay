@@ -92,7 +92,7 @@ reconciliationRouter.post("/transfers/lookup", async (req, res) => {
       parsed.data.bankCode,
       parsed.data.accountNumber
     );
-    res.json({ data: result.data });
+    res.json({ data: result });
   } catch (err) {
     res.status(502).json({
       message: err instanceof Error ? err.message : "Bank lookup failed",
@@ -128,13 +128,16 @@ reconciliationRouter.post("/partners/:id/refund-credit", async (req, res) => {
   const merchantTxRef = `cpay_refund_${uuidv4().replace(/-/g, "").slice(0, 20)}`;
 
   try {
-    await lookupBankAccount(parsed.data.bankCode, parsed.data.accountNumber);
+    const verified = await lookupBankAccount(
+      parsed.data.bankCode,
+      parsed.data.accountNumber
+    );
 
     const transfer = await sendBankTransfer({
       amountKobo: credit,
       bankCode: parsed.data.bankCode,
-      accountNumber: parsed.data.accountNumber,
-      accountName: parsed.data.accountName,
+      accountNumber: verified.accountNumber || parsed.data.accountNumber,
+      accountName: verified.accountName || parsed.data.accountName,
       merchantTxRef,
       narration: `CPay credit refund — ${partner.fullName}`,
     });

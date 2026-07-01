@@ -254,10 +254,10 @@ export function OverpaymentsPanel({
 
 function OverpaymentActionBlock({ item }: { item: OverpaymentRow }) {
   const resolve = useResolveOverpayment();
-  const { success, warning } = useToast();
+  const { success, warning, error: toastError } = useToast();
   const { markRead } = useNotificationActivity();
   const [mode, setMode] = useState<"pick" | "refund">("pick");
-  const [bankCode, setBankCode] = useState("999992");
+  const [bankCode, setBankCode] = useState("058");
   const [accountNumber, setAccountNumber] = useState("");
   const [accountName, setAccountName] = useState("");
 
@@ -278,14 +278,33 @@ function OverpaymentActionBlock({ item }: { item: OverpaymentRow }) {
       accountNumber,
       accountName,
     };
-    const result = await resolve.mutateAsync({ id: item.id, input });
-    warning(
-      result.message ??
-        `Refund initiated — ${formatMoney(item.excess)} pending Nomba settlement.`,
-      9000
-    );
-    markRead(`overpay-${item.id}`);
-    setMode("pick");
+    try {
+      const result = await resolve.mutateAsync({ id: item.id, input });
+      warning(
+        result.message ??
+          `Refund initiated — ${formatMoney(item.excess)} pending Nomba settlement.`,
+        9000
+      );
+      markRead(`overpay-${item.id}`);
+      setMode("pick");
+    } catch (err) {
+      const message =
+        err &&
+        typeof err === "object" &&
+        "response" in err &&
+        err.response &&
+        typeof err.response === "object" &&
+        "data" in err.response &&
+        err.response.data &&
+        typeof err.response.data === "object" &&
+        "message" in err.response.data &&
+        typeof err.response.data.message === "string"
+          ? err.response.data.message
+          : err instanceof Error
+            ? err.message
+            : "Refund failed";
+      toastError(message, 10000);
+    }
   }
 
   return (
@@ -338,7 +357,7 @@ function OverpaymentActionBlock({ item }: { item: OverpaymentRow }) {
             </span>
             <p className="mt-3 font-semibold text-text-primary">Refund to bank</p>
             <p className="mt-1 text-sm text-text-secondary">
-              Send the excess back via Nomba Transfers (sandbox test bank 999992).
+              Send the excess back via Nomba Transfers (use the recipient bank code, e.g. GTBank = 058).
             </p>
             <span className="mt-3 inline-flex text-sm font-medium text-primary group-hover:underline">
               Enter bank details →
@@ -360,7 +379,7 @@ function OverpaymentActionBlock({ item }: { item: OverpaymentRow }) {
           <div className="grid gap-3 sm:grid-cols-3">
             <input
               className="input-field"
-              placeholder="Bank code (999992)"
+              placeholder="Bank code (e.g. 058 for GTBank)"
               value={bankCode}
               onChange={(e) => setBankCode(e.target.value)}
               required

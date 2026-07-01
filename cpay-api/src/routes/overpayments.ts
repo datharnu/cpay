@@ -165,13 +165,14 @@ overpaymentsRouter.post("/:id/resolve", async (req, res) => {
   const merchantTxRef = `cpay_overpay_${uuidv4().replace(/-/g, "").slice(0, 16)}`;
 
   try {
-    await lookupBankAccount(bankCode, accountNumber);
+    const verified = await lookupBankAccount(bankCode, accountNumber);
+    const resolvedName = verified.accountName || accountName;
 
     const transfer = await sendBankTransfer({
       amountKobo: overpayment.excessKobo,
       bankCode,
-      accountNumber,
-      accountName,
+      accountNumber: verified.accountNumber || accountNumber,
+      accountName: resolvedName,
       merchantTxRef,
       narration: `CPay overpayment refund — ${partner.fullName}`,
     });
@@ -181,7 +182,7 @@ overpaymentsRouter.post("/:id/resolve", async (req, res) => {
     overpayment.merchantTxRef = merchantTxRef;
     overpayment.refundBankCode = bankCode;
     overpayment.refundAccountNumber = accountNumber;
-    overpayment.refundAccountName = accountName;
+    overpayment.refundAccountName = resolvedName;
     await overpayment.save();
 
     await PartnerNotification.create({
@@ -189,7 +190,7 @@ overpaymentsRouter.post("/:id/resolve", async (req, res) => {
       paymentId: overpayment.paymentId,
       type: "overpayment_pending",
       title: "Refund initiated — pending settlement",
-      message: `${formatNaira(overpayment.excessKobo)} sent to ${accountName} (${accountNumber}) via Nomba Transfers API. CPay will mark settled when Nomba confirms.`,
+      message: `${formatNaira(overpayment.excessKobo)} sent to ${resolvedName} (${verified.accountNumber || accountNumber}) via Nomba Transfers API. CPay will mark settled when Nomba confirms.`,
     });
 
     let statusDetail: Record<string, unknown> | null = null;
@@ -221,7 +222,7 @@ overpaymentsRouter.post("/:id/resolve", async (req, res) => {
         message:
           settled.status === "refunded"
             ? `${formatNaira(settled.excessKobo)} refund confirmed settled by Nomba.`
-            : `Refund initiated — pending Nomba settlement to ${accountName} (${accountNumber}).`,
+            : `Refund initiated — pending Nomba settlement to ${resolvedName} (${verified.accountNumber || accountNumber}).`,
       },
     });
   } catch (err) {

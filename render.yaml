@@ -23,7 +23,7 @@ services:
       - key: CORS_ORIGIN
         value: http://localhost:3000
       - key: NOMBA_BASE_URL
-        value: https://sandbox.nomba.com
+        value: https://api.nomba.com
       - key: NOMBA_ACCOUNT_ID
         sync: false
       - key: NOMBA_SUB_ACCOUNT_ID
