@@ -3,6 +3,7 @@
 import { formatMoney } from "@/components/shared/AppShell";
 import { useToast } from "@/components/shared/Toast";
 import { useDashboardSummary } from "@/hooks/useCpay";
+import { useNotificationActivity } from "@/hooks/useNotificationActivity";
 import { useEffect, useRef } from "react";
 
 type SeenState = {
@@ -32,6 +33,7 @@ function classificationLabel(classification?: string | null): string {
 export function useLiveFinanceToasts() {
   const { data: summary } = useDashboardSummary();
   const { success, info, warning } = useToast();
+  const { push } = useNotificationActivity();
   const seen = useRef<SeenState>({
     ready: false,
     paymentIds: new Set(),
@@ -65,33 +67,65 @@ export function useLiveFinanceToasts() {
         payment.virtualAccountNumber ??
         "Unknown payer";
 
-      success(
-        `${classificationLabel(payment.classification)}: ${formatMoney(payment.amount)} from ${payer}`,
-        7000
-      );
+      const message = `${classificationLabel(payment.classification)}: ${formatMoney(payment.amount)} from ${payer}`;
+
+      success(message, 7000);
+      push({
+        id: `payment-${payment.id}`,
+        title: classificationLabel(payment.classification),
+        message,
+        tone: "success",
+        partnerId: payment.partnerId ?? undefined,
+        partnerName: payment.partnerName ?? undefined,
+        href: payment.partnerId ? `/partners/${payment.partnerId}` : undefined,
+      });
     }
 
     for (const item of summary.recentOverpayments) {
       if (seen.current.overpaymentIds.has(item.id)) continue;
 
-      info(
-        `${item.partnerName} overpaid by ${formatMoney(item.excess)} — finance action required`,
-        7000
-      );
+      const message = `${item.partnerName} overpaid by ${formatMoney(item.excess)} — finance action required`;
+
+      info(message, 7000);
+      push({
+        id: `overpay-${item.id}`,
+        title: "Overpayment — action needed",
+        message,
+        tone: "info",
+        partnerId: item.partnerId,
+        partnerName: item.partnerName,
+        href: `/partners/${item.partnerId}`,
+      });
     }
 
     for (const item of summary.recentPendingRefunds) {
       if (seen.current.refundPendingIds.has(item.id)) continue;
 
-      warning(
-        `Refund pending Nomba settlement: ${formatMoney(item.excess)} for ${item.partnerName} → ${item.refundAccountName ?? "bank account"}. Sandbox outbound transfers are simulated.`,
-        9000
-      );
+      const message = `Refund pending Nomba settlement: ${formatMoney(item.excess)} for ${item.partnerName} → ${item.refundAccountName ?? "bank account"}. Sandbox outbound transfers are simulated.`;
+
+      warning(message, 9000);
+      push({
+        id: `refund-${item.id}`,
+        title: "Refund pending settlement",
+        message,
+        tone: "warning",
+        partnerId: item.partnerId,
+        partnerName: item.partnerName,
+        href: `/partners/${item.partnerId}`,
+      });
     }
 
     for (const id of seen.current.refundPendingIds) {
       if (refundPendingIds.has(id)) continue;
-      success("Nomba confirmed refund settlement.", 6000);
+
+      const message = "Nomba confirmed refund settlement.";
+      success(message, 6000);
+      push({
+        id: `refund-settled-${id}`,
+        title: "Refund settled",
+        message,
+        tone: "success",
+      });
     }
 
     seen.current = {
@@ -100,7 +134,7 @@ export function useLiveFinanceToasts() {
       overpaymentIds,
       refundPendingIds,
     };
-  }, [summary, success, info, warning]);
+  }, [summary, success, info, warning, push]);
 }
 
 export function LiveFinanceToasts() {

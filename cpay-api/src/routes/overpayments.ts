@@ -7,12 +7,13 @@ import {
   PartnerNotification,
   Payment,
 } from "../models";
+import { markPartnerNotificationsRead } from "../services/notifications";
+import { formatNaira, koboToNaira, applyOverpaymentToFutureMonths } from "../services/ledger";
 import {
   getTransferStatus,
   lookupBankAccount,
   sendBankTransfer,
 } from "../services/nombaClient";
-import { formatNaira, koboToNaira } from "../services/ledger";
 import {
   trySettleOverpaymentRefund,
   settleAllPendingRefunds,
@@ -87,7 +88,10 @@ overpaymentsRouter.post("/:id/resolve", async (req, res) => {
   }
 
   const overpayment = await OverpaymentCase.findByPk(req.params.id, {
-    include: [{ model: Partner, as: "partner" }],
+    include: [
+      { model: Partner, as: "partner" },
+      { model: Payment, as: "payment" },
+    ],
   });
 
   if (!overpayment) {
@@ -109,20 +113,36 @@ overpaymentsRouter.post("/:id/resolve", async (req, res) => {
   const { choice } = parsed.data;
 
   if (choice === "credit_next_month") {
-    partner.creditBalanceKobo = (partner.creditBalanceKobo ?? 0) + overpayment.excessKobo;
-    await partner.save();
+    const payment = (overpayment as OverpaymentCase & { payment?: Payment }).payment;
+    if (!payment) {
+      res.status(404).json({ message: "Linked payment not found" });
+      return;
+    }
+
+    const creditResult = await applyOverpaymentToFutureMonths(partner.id, payment.id);
+    await partner.reload();
 
     overpayment.status = "credited";
     overpayment.choice = "credit_next_month";
     overpayment.resolvedAt = new Date();
     await overpayment.save();
 
+    await markPartnerNotificationsRead(partner.id, {
+      paymentId: overpayment.paymentId,
+      types: ["overpayment_pending"],
+    });
+
+    const prepaidText =
+      creditResult.prepaidLabels.length > 0
+        ? creditResult.prepaidLabels.join(", ")
+        : "upcoming months";
+
     await PartnerNotification.create({
       partnerId: partner.id,
       paymentId: overpayment.paymentId,
       type: "overpayment_resolved",
-      title: "Overpayment applied to next month",
-      message: `${formatNaira(overpayment.excessKobo)} credited toward ${partner.fullName}'s future partnership months.`,
+      title: "Overpayment applied to upcoming months",
+      message: `${formatNaira(payment.amountKobo)} applied to ${prepaidText} for ${partner.fullName}.`,
     });
 
     res.json({
@@ -131,7 +151,11 @@ overpaymentsRouter.post("/:id/resolve", async (req, res) => {
         status: overpayment.status,
         choice: overpayment.choice,
         creditBalance: koboToNaira(partner.creditBalanceKobo ?? 0),
-        message: `${formatNaira(overpayment.excessKobo)} will apply to upcoming months automatically.`,
+        prepaidMonths: creditResult.prepaidLabels,
+        message:
+          creditResult.prepaidLabels.length > 0
+            ? `${formatNaira(payment.amountKobo)} applied — ${prepaidText} now show as paid in the ledger.`
+            : `${formatNaira(payment.amountKobo)} credited toward upcoming months.`,
       },
     });
     return;
@@ -177,6 +201,13 @@ overpaymentsRouter.post("/:id/resolve", async (req, res) => {
     }
 
     const settled = await trySettleOverpaymentRefund(overpayment);
+
+    if (settled.status === "refunded") {
+      await markPartnerNotificationsRead(partner.id, {
+        paymentId: overpayment.paymentId,
+        types: ["overpayment_pending"],
+      });
+    }
 
     res.json({
       data: {

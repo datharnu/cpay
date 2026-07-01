@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ToastProvider } from "@/components/shared/Toast";
+import { NotificationActivityProvider } from "@/hooks/useNotificationActivity";
 import { useState } from "react";
 
 export function QueryProvider({ children }: { children: React.ReactNode }) {
@@ -9,7 +10,9 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={client}>
-      <ToastProvider>{children}</ToastProvider>
+      <ToastProvider>
+        <NotificationActivityProvider>{children}</NotificationActivityProvider>
+      </ToastProvider>
     </QueryClientProvider>
   );
 }

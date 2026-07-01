@@ -6,6 +6,7 @@ import { createVirtualAccount, fetchVirtualAccount } from "../services/nombaClie
 import {
   ensurePartnerMonths,
   formatNaira,
+  formatPartnershipStartLabel,
   getPartnerSummary,
   koboToNaira,
   nairaToKobo,
@@ -28,6 +29,10 @@ const createPartnerSchema = z.object({
   phone: z.string().min(10),
   email: z.string().email().optional(),
   monthlyCommitment: z.number().positive(),
+  /** HTML month input: "2026-07" */
+  partnershipStartMonth: z
+    .string()
+    .regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Use a valid month (YYYY-MM)"),
 });
 
 partnersRouter.get("/", async (_req, res, next) => {
@@ -44,6 +49,7 @@ partnersRouter.get("/", async (_req, res, next) => {
         phone: p.phone,
         email: p.email,
         monthlyCommitment: koboToNaira(p.monthlyCommitmentKobo),
+        partnershipStartLabel: formatPartnershipStartLabel(p),
         virtualAccountNumber: p.virtualAccountNumber,
         bankName: p.bankName,
         bankAccountName: p.bankAccountName,
@@ -176,6 +182,9 @@ partnersRouter.get("/:id", async (req, res) => {
       phone: partner.phone,
       email: partner.email,
       monthlyCommitment: koboToNaira(partner.monthlyCommitmentKobo),
+      partnershipStartYear: partner.partnershipStartYear,
+      partnershipStartMonth: partner.partnershipStartMonth,
+      partnershipStartLabel: formatPartnershipStartLabel(partner),
       virtualAccountNumber: partner.virtualAccountNumber,
       bankName: partner.bankName,
       bankAccountName: partner.bankAccountName,
@@ -197,7 +206,9 @@ partnersRouter.post("/", async (req, res) => {
     return;
   }
 
-  const { fullName, phone, email, monthlyCommitment } = parsed.data;
+  const { fullName, phone, email, monthlyCommitment, partnershipStartMonth } =
+    parsed.data;
+  const [startYear, startMonth] = partnershipStartMonth.split("-").map(Number);
   const accountRef = `cpay_${uuidv4().replace(/-/g, "").slice(0, 24)}`;
 
   const partner = await Partner.create({
@@ -205,6 +216,8 @@ partnersRouter.post("/", async (req, res) => {
     phone,
     email: email ?? null,
     monthlyCommitmentKobo: nairaToKobo(monthlyCommitment),
+    partnershipStartYear: startYear,
+    partnershipStartMonth: startMonth,
     accountRef,
   });
 

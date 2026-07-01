@@ -5,8 +5,10 @@ import { configureSqlite, sequelize } from "./db";
 import "./models";
 import { dashboardRouter } from "./routes/dashboard";
 import { devRouter } from "./routes/dev";
+import { notificationsRouter } from "./routes/notifications";
 import { overpaymentsRouter } from "./routes/overpayments";
 import { partnersRouter } from "./routes/partners";
+import { paymentsRouter } from "./routes/payments";
 import { reconciliationRouter } from "./routes/reconciliation";
 import { nombaWebhookHandler } from "./routes/webhooks";
 import { seedSandboxPartnersIfEmpty } from "./services/seedSandboxPartners";
@@ -42,7 +44,9 @@ async function main() {
   });
 
   app.use("/api/partners", partnersRouter);
+  app.use("/api/payments", paymentsRouter);
   app.use("/api/dashboard", dashboardRouter);
+  app.use("/api/notifications", notificationsRouter);
   app.use("/api/overpayments", overpaymentsRouter);
   app.use("/api/reconciliation", reconciliationRouter);
 

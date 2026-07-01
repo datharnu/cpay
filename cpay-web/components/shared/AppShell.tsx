@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { NotificationCenter } from "@/components/shared/NotificationCenter";
 import { LiveFinanceToasts } from "@/hooks/useLiveFinanceToasts";
 
 const navItems = [
@@ -24,6 +25,15 @@ const navItems = [
     ),
   },
   {
+    name: "Payment history",
+    href: "/payments",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.375M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+      </svg>
+    ),
+  },
+  {
     name: "Add partner",
     href: "/partners/new",
     icon: (
@@ -42,6 +52,7 @@ function isNavActive(pathname: string, href: string): boolean {
       (pathname.startsWith("/partners/") && !pathname.startsWith("/partners/new"))
     );
   }
+  if (href === "/payments") return pathname === "/payments";
   return pathname.startsWith(href);
 }
 
@@ -55,8 +66,9 @@ export function AppShell({
   const pathname = usePathname();
 
   return (
-    <div className="relative min-h-screen app-bg p-3 sm:p-4 lg:p-5">
+    <div className="relative flex h-screen overflow-hidden app-bg p-3 sm:p-4 lg:p-5">
       <LiveFinanceToasts />
+
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute -left-32 top-10 h-[28rem] w-[28rem] rounded-full bg-[#b8a8d8]/50 blur-[100px]" />
         <div className="absolute -right-20 top-1/4 h-[32rem] w-[32rem] rounded-full bg-[#a8d4cc]/45 blur-[110px]" />
@@ -64,22 +76,23 @@ export function AppShell({
         <div className="absolute right-1/3 top-2/3 h-64 w-64 rounded-full bg-[#c8c0e0]/40 blur-[80px]" />
       </div>
 
-      <div className="relative z-10 mx-auto flex max-w-shell min-h-[calc(100vh-1.5rem)] flex-col overflow-hidden glass-shell sm:min-h-[calc(100vh-2rem)] lg:min-h-[calc(100vh-2.5rem)]">
-        <div className="flex min-h-0 flex-1">
-          <aside className="hidden w-sidebar shrink-0 flex-col border-r border-white/35 lg:flex">
-            <div className="border-b border-white/35 px-5 py-5">
-              <Link href="/" className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-sm font-bold text-primary-foreground shadow-card">
-                  CP
-                </span>
-                <div>
-                  <p className="text-base font-bold text-text-primary">CPay</p>
-                  <p className="text-xs text-text-secondary">Partnership finance</p>
-                </div>
-              </Link>
-            </div>
+      <div className="relative z-10 mx-auto flex h-full w-full max-w-shell min-h-0 overflow-hidden glass-shell">
+        {/* Sidebar — fixed height, never scrolls the page */}
+        <aside className="hidden h-full w-sidebar shrink-0 flex-col overflow-hidden border-r border-white/35 lg:flex">
+          <div className="shrink-0 border-b border-white/35 px-5 py-5">
+            <Link href="/" className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-sm font-bold text-primary-foreground shadow-card">
+                CP
+              </span>
+              <div>
+                <p className="text-base font-bold text-text-primary">CPay</p>
+                <p className="text-xs text-text-secondary">Partnership finance</p>
+              </div>
+            </Link>
+          </div>
 
-            <nav className="flex flex-1 flex-col gap-1 p-4">
+          <nav className="min-h-0 flex-1 overflow-y-auto p-4">
+            <div className="flex flex-col gap-1">
               {navItems.map((item) => {
                 const isActive = isNavActive(pathname, item.href);
 
@@ -100,40 +113,48 @@ export function AppShell({
                   </Link>
                 );
               })}
-            </nav>
+            </div>
+          </nav>
 
-            <div className="border-t border-white/35 p-4">
-              <div className="liquid-glass liquid-glass-card  p-3">
-                <p className="text-xs font-medium text-text-secondary">Powered by</p>
-                <p className="mt-0.5 text-sm font-semibold text-text-primary">Nomba sandbox</p>
-                <p className="mt-1 text-xs text-text-muted">Live webhook reconciliation</p>
+          <div className="shrink-0 border-t border-white/35 p-4">
+            <div className="liquid-glass liquid-glass-card p-3">
+              <p className="text-xs font-medium text-text-secondary">Powered by</p>
+              <p className="mt-0.5 text-sm font-semibold text-text-primary">Nomba sandbox</p>
+              <p className="mt-1 text-xs text-text-muted">Live webhook reconciliation</p>
+            </div>
+          </div>
+        </aside>
+
+        {/* Main column — header fixed, content scrolls internally */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <header className="shrink-0 border-b border-white/35 liquid-glass liquid-glass-subtle">
+            <div className="flex h-[4.25rem] items-center justify-between gap-4 px-4 sm:px-6">
+              <h1 className="min-w-0 truncate text-xl font-bold leading-tight text-text-primary sm:text-[26px]">
+                {title ?? "CPay"}
+              </h1>
+
+              <div className="flex shrink-0 items-center gap-2">
+                <NotificationCenter />
+                <div className="flex items-center gap-2 lg:hidden">
+                  <Link href="/" className="btn-ghost">
+                    Home
+                  </Link>
+                  <Link href="/partners" className="btn-ghost">
+                    Members
+                  </Link>
+                  <Link href="/payments" className="btn-ghost">
+                    Payments
+                  </Link>
+                  <Link href="/partners/new" className="btn-primary">
+                    Add
+                  </Link>
+                </div>
               </div>
             </div>
-          </aside>
+          </header>
 
-          <div className="flex min-w-0 flex-1 flex-col">
-            <header className="sticky top-0 z-10 border-b border-white/35 liquid-glass liquid-glass-subtle lg:hidden">
-              <div className="flex items-center justify-end gap-2 px-4 py-3 sm:px-6">
-                <Link href="/" className="btn-ghost">
-                  Home
-                </Link>
-                <Link href="/partners" className="btn-ghost">
-                  Members
-                </Link>
-                <Link href="/partners/new" className="btn-primary">
-                  Add
-                </Link>
-              </div>
-            </header>
-
-            <main className="flex-1 overflow-y-auto p-4 sm:p-6">
-              <div className="mx-auto max-w-5xl space-y-5">
-                {title ? (
-                  <h1 className="text-h1">{title}</h1>
-                ) : null}
-                {children}
-              </div>
-            </main>
+          <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+            <div className="mx-auto max-w-5xl space-y-5">{children}</div>
           </div>
         </div>
       </div>

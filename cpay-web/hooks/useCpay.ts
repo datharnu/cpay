@@ -1,9 +1,11 @@
 import api from "@/api/axios";
 import type {
   DashboardSummary,
+  NotificationsFeed,
   OverpaymentCase,
   PartnerDetail,
   PartnerListItem,
+  PaymentListItem,
   ReconciliationResult,
   ResolveOverpaymentInput,
 } from "@/types";
@@ -26,6 +28,17 @@ export function usePartners() {
     queryKey: ["partners"],
     queryFn: async () => {
       const { data } = await api.get<{ data: PartnerListItem[] }>("/api/partners");
+      return data.data;
+    },
+    refetchInterval: 5_000,
+  });
+}
+
+export function useAllPayments() {
+  return useQuery({
+    queryKey: ["payments"],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: PaymentListItem[] }>("/api/payments");
       return data.data;
     },
     refetchInterval: 5_000,
@@ -151,6 +164,7 @@ export function useResolveOverpayment() {
       queryClient.invalidateQueries({ queryKey: ["overpayments"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["partners"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
 }
@@ -166,6 +180,44 @@ export function useCheckRefundStatus() {
       queryClient.invalidateQueries({ queryKey: ["overpayments"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["partners"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+}
+
+export function useNotifications() {
+  return useQuery({
+    queryKey: ["notifications"],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: NotificationsFeed }>("/api/notifications");
+      return data.data;
+    },
+    refetchInterval: 5_000,
+  });
+}
+
+export function useMarkNotificationRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.patch(`/api/notifications/${id}/read`);
+      return data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+}
+
+export function useMarkAllNotificationsRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post("/api/notifications/read-all");
+      return data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
 }

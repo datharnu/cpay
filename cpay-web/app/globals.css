@@ -22,6 +22,34 @@
   }
 }
 
+@keyframes notification-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes notification-backdrop-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.notification-panel-enter {
+  animation: notification-panel-enter 0.2s ease-out forwards;
+}
+
+.notification-backdrop-enter {
+  animation: notification-backdrop-enter 0.15s ease-out forwards;
+}
+
 .toast-enter {
   animation: toast-enter 0.28s ease-out forwards;
 }
@@ -71,6 +99,12 @@
   --shell-max-width: 81.25rem;
   --radius-card: 0.9rem;
   --liquid-blur: 48px;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -328,6 +362,26 @@ body {
 
   .data-table th {
     @apply px-4 py-3 text-xs font-semibold text-text-secondary;
+  }
+
+  .detail-table {
+    @apply min-w-full text-left text-sm;
+  }
+
+  .detail-table thead {
+    @apply border-b-2 border-white/55 bg-white/25;
+  }
+
+  .detail-table th {
+    @apply px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-text-primary;
+  }
+
+  .detail-table tbody tr {
+    @apply border-b border-white/35 transition-colors last:border-0 hover:bg-white/20;
+  }
+
+  .detail-table td {
+    @apply px-4 py-3.5 align-middle text-text-primary;
   }
 
   .data-table tbody tr {

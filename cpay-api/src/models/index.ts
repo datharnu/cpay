@@ -22,6 +22,9 @@ export class Partner extends Model<
   declare bankAccountName: CreationOptional<string | null>;
   declare creditBalanceKobo: CreationOptional<number>;
   declare joinedAt: CreationOptional<Date>;
+  /** First calendar month the member committed to pay (may differ from registration date). */
+  declare partnershipStartYear: CreationOptional<number>;
+  declare partnershipStartMonth: CreationOptional<number>;
   declare status: CreationOptional<"active" | "inactive">;
 }
 
@@ -42,6 +45,16 @@ Partner.init(
     bankAccountName: { type: DataTypes.STRING, allowNull: true },
     creditBalanceKobo: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     joinedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    partnershipStartYear: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: () => new Date().getFullYear(),
+    },
+    partnershipStartMonth: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: () => new Date().getMonth() + 1,
+    },
     status: {
       type: DataTypes.ENUM("active", "inactive"),
       allowNull: false,

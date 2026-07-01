@@ -6,11 +6,13 @@ export function StatCard({
   value,
   tone = "default",
   icon,
+  hint,
 }: {
   label: string;
   value: string;
   tone?: "default" | "success" | "warning" | "danger" | "info";
   icon?: React.ReactNode;
+  hint?: string;
 }) {
   const valueTones = {
     default: "text-text-primary",
@@ -31,6 +33,7 @@ export function StatCard({
         ) : null}
       </div>
       <p className={`text-2xl font-bold tracking-tight ${valueTones[tone]}`}>{value}</p>
+      {hint ? <p className="text-xs text-text-muted">{hint}</p> : null}
     </div>
   );
 }
@@ -133,11 +136,14 @@ export function PageSection({
   title,
   description,
   actions,
+  flush,
   children,
 }: {
   title: string;
   description?: string;
   actions?: React.ReactNode;
+  /** Remove body padding so tables can span the full card width */
+  flush?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -151,7 +157,7 @@ export function PageSection({
         </div>
         {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
       </div>
-      <div className="p-5">{children}</div>
+      <div className={flush ? undefined : "p-5"}>{children}</div>
     </section>
   );
 }

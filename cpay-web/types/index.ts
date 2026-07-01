@@ -4,6 +4,7 @@ export type PartnerListItem = {
   phone: string;
   email?: string | null;
   monthlyCommitment: number;
+  partnershipStartLabel?: string;
   virtualAccountNumber?: string | null;
   bankName?: string | null;
   bankAccountName?: string | null;
@@ -22,6 +23,19 @@ export type DashboardSummary = {
   totalPartners: number;
   activePartners: number;
   totalPayments: number;
+  totalCollected: number;
+  collectedThisMonth: number;
+  expectedThisMonth: number;
+  collectionRate: number;
+  membersPaidThisMonth: number;
+  membersTrackedThisMonth: number;
+  monthlyCollections: Array<{
+    year: number;
+    month: number;
+    label: string;
+    expected: number;
+    collected: number;
+  }>;
   unmatchedPayments: number;
   totalArrears: number;
   pendingOverpayments: number;
@@ -58,6 +72,7 @@ export type DashboardSummary = {
     classification?: string | null;
     virtualAccountNumber?: string | null;
     senderName?: string | null;
+    nombaTransactionId?: string | null;
     createdAt: string;
   }>;
 };
@@ -68,6 +83,7 @@ export type PartnerDetail = {
   phone: string;
   email?: string | null;
   monthlyCommitment: number;
+  partnershipStartLabel?: string;
   virtualAccountNumber?: string | null;
   bankName?: string | null;
   bankAccountName?: string | null;
@@ -141,4 +157,33 @@ export type ReconciliationResult = {
   nombaCount: number;
   localCount: number;
   syncedAt: string;
+};
+
+export type PaymentListItem = {
+  id: string;
+  partnerId?: string | null;
+  partnerName?: string | null;
+  virtualAccountNumber?: string | null;
+  amount: number;
+  classification?: string | null;
+  senderName?: string | null;
+  nombaTransactionId?: string | null;
+  createdAt: string;
+};
+
+export type AppNotification = {
+  id: string;
+  partnerId: string;
+  partnerName: string;
+  paymentId?: string | null;
+  type: string;
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+};
+
+export type NotificationsFeed = {
+  items: AppNotification[];
+  unreadCount: number;
 };

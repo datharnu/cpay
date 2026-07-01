@@ -8,6 +8,7 @@ import { useToast } from "@/components/shared/Toast";
 import { PageSection } from "@/components/shared/ui";
 import {
   createPartnerSchema,
+  defaultPartnershipStartMonth,
   type CreatePartnerInput,
 } from "@/app/utils/SchemaData";
 import { useCreatePartner } from "@/hooks/useCpay";
@@ -39,6 +40,7 @@ export default function NewPartnerPage() {
       phone: "",
       email: "",
       monthlyCommitment: 50,
+      partnershipStartMonth: defaultPartnershipStartMonth(),
     },
   });
 
@@ -106,6 +108,25 @@ export default function NewPartnerPage() {
                 />
                 {errors.email && (
                   <p className="mt-1.5 text-sm text-danger">{errors.email.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="mb-2 block text-base font-medium text-text-primary">
+                  Start paying from
+                </label>
+                <input
+                  {...register("partnershipStartMonth")}
+                  type="month"
+                  className="input-field py-3.5 px-4 text-base"
+                />
+                <p className="mt-1.5 text-sm text-text-muted">
+                  First month they pledged to pay — can be later than when you register them.
+                </p>
+                {errors.partnershipStartMonth && (
+                  <p className="mt-1.5 text-sm text-danger">
+                    {errors.partnershipStartMonth.message}
+                  </p>
                 )}
               </div>
 

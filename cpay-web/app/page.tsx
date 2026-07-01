@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { AppShell, formatMoney } from "@/components/shared/AppShell";
+import { DashboardCollectionsChart } from "@/components/dashboard/DashboardCollectionsChart";
+import { PaymentsTable } from "@/components/partners/PaymentsTable";
 import { PartnersTable } from "@/components/partners/PartnersTable";
 import { DEMO_PARTNERS } from "@/data/demoPartners";
 import {
@@ -11,7 +13,6 @@ import {
   LiveBadge,
   PageSection,
   PartnersTableSkeleton,
-  ProblemHero,
   StatCard,
 } from "@/components/shared/ui";
 import {
@@ -33,27 +34,38 @@ export default function DashboardPage() {
     ? new Date(dataUpdatedAt).toLocaleTimeString("en-NG")
     : null;
 
+  const recentPaymentRows = (summary?.recentPayments ?? []).slice(0, 8).map((p) => ({
+    id: p.id,
+    amount: p.amount,
+    classification: p.classification,
+    senderName: p.senderName,
+    nombaTransactionId: p.nombaTransactionId,
+    createdAt: p.createdAt,
+    partnerId: p.partnerId,
+    partnerName: p.partnerName,
+    virtualAccountNumber: p.virtualAccountNumber,
+  }));
+
   return (
     <AppShell title="Dashboard Overview">
-      <ProblemHero
-        status={<LiveBadge label="Live via Nomba webhooks" />}
-        meta={lastUpdated ? `Updated ${lastUpdated}` : undefined}
-      />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-text-secondary">
+          Partnership collections via Nomba virtual accounts — live webhook reconciliation.
+          {lastUpdated ? ` Updated ${lastUpdated}.` : null}
+        </p>
+        <LiveBadge label="Live via Nomba webhooks" />
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard
-          label="Partners"
-          value={summaryLoading ? "…" : String(summary?.totalPartners ?? 0)}
-          icon={
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766m12.748 0c-.995.608-2.085.96-3.228 1.066M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
-            </svg>
+          label="Total collected"
+          value={summaryLoading ? "…" : formatMoney(summary?.totalCollected ?? 0)}
+          tone="success"
+          hint={
+            summaryLoading
+              ? undefined
+              : `${summary?.totalPayments ?? 0} payment${summary?.totalPayments === 1 ? "" : "s"}`
           }
-        />
-        <StatCard
-          label="Total outstanding"
-          value={summaryLoading ? "…" : formatMoney(summary?.totalArrears ?? 0)}
-          tone={(summary?.totalArrears ?? 0) > 0 ? "danger" : "success"}
           icon={
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
@@ -61,36 +73,64 @@ export default function DashboardPage() {
           }
         />
         <StatCard
-          label="Payments received"
-          value={summaryLoading ? "…" : String(summary?.totalPayments ?? 0)}
-          tone="success"
+          label="Collected this month"
+          value={summaryLoading ? "…" : formatMoney(summary?.collectedThisMonth ?? 0)}
+          tone="info"
+          hint={
+            summaryLoading ? undefined : `${summary?.collectionRate ?? 0}% of expected`
+          }
           icon={
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.375M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.375M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
             </svg>
           }
         />
         <StatCard
-          label="Pending overpayments"
-          value={summaryLoading ? "…" : String(summary?.pendingOverpayments ?? 0)}
-          tone={(summary?.pendingOverpayments ?? 0) > 0 ? "info" : "default"}
+          label="Expected this month"
+          value={summaryLoading ? "…" : formatMoney(summary?.expectedThisMonth ?? 0)}
+          tone="default"
+          hint={
+            summaryLoading
+              ? undefined
+              : `${summary?.membersPaidThisMonth ?? 0}/${summary?.membersTrackedThisMonth ?? 0} members fully paid`
+          }
           icon={
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
             </svg>
           }
         />
         <StatCard
-          label="Unmatched"
-          value={summaryLoading ? "…" : String(summary?.unmatchedPayments ?? 0)}
-          tone={(summary?.unmatchedPayments ?? 0) > 0 ? "warning" : "default"}
+          label="Outstanding"
+          value={summaryLoading ? "…" : formatMoney(summary?.totalArrears ?? 0)}
+          tone={(summary?.totalArrears ?? 0) > 0 ? "danger" : "success"}
           icon={
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
             </svg>
           }
         />
+        <StatCard
+          label="Partners"
+          value={summaryLoading ? "…" : String(summary?.totalPartners ?? 0)}
+          hint={summaryLoading ? undefined : `${summary?.activePartners ?? 0} active`}
+          icon={
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766m12.748 0c-.995.608-2.085.96-3.228 1.066M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+            </svg>
+          }
+        />
       </div>
+
+      <PageSection
+        title="Collections overview"
+        description="Expected vs collected partnership dues — last 6 months from Nomba webhook payments."
+      >
+        <DashboardCollectionsChart
+          months={summary?.monthlyCollections ?? []}
+          isLoading={summaryLoading}
+        />
+      </PageSection>
 
       {(summary?.pendingOverpayments ?? 0) > 0 && (
         <AlertSection
@@ -196,7 +236,7 @@ export default function DashboardPage() {
           {reconcile.data.drifts.length > 0 ? (
             <p>
               Nomba sync found {reconcile.data.drifts.length} drift(s) between Nomba
-              Transactions API and local ledger. Check partner detail → Load from Nomba.
+              Transactions API and local ledger.
             </p>
           ) : (
             <p>
@@ -208,11 +248,30 @@ export default function DashboardPage() {
       )}
 
       <PageSection
+        flush
+        title="Recent payments"
+        description="Latest transfers reconciled across all members."
+        actions={
+          <Link href="/payments" className="btn-secondary text-xs sm:text-sm">
+            View all payments
+          </Link>
+        }
+      >
+        {summaryLoading ? (
+          <div className="space-y-3 px-5 py-6">
+            <div className="h-10 animate-pulse rounded-lg bg-white/25" />
+            <div className="h-10 animate-pulse rounded-lg bg-white/25" />
+          </div>
+        ) : (
+          <PaymentsTable payments={recentPaymentRows} showMember />
+        )}
+      </PageSection>
+
+      <PageSection
         title="Partnership members"
-        description="Live Nomba accounts on this overview. View all members for simulated scale preview."
+        description="Live Nomba virtual accounts — click a row to open member details."
         actions={
           <>
-       
             <button
               type="button"
               onClick={() => importMissing.mutate()}
@@ -259,11 +318,6 @@ export default function DashboardPage() {
           </>
         )}
       </PageSection>
-
-      <p className="text-center text-xs text-text-muted">
-        Live payments come from Nomba webhooks or Transactions API sync. Simulated
-        member rows on the members page are preview-only for demo scale.
-      </p>
     </AppShell>
   );
 }

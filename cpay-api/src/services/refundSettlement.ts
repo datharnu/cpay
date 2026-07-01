@@ -1,5 +1,6 @@
 import { OverpaymentCase, PartnerNotification } from "../models";
 import { formatNaira } from "./ledger";
+import { markPartnerNotificationsRead } from "./notifications";
 import { getTransferStatus } from "./nombaClient";
 
 function isNombaTransferSettled(data: Record<string, unknown> | undefined): boolean {
@@ -40,6 +41,11 @@ export async function trySettleOverpaymentRefund(
     overpayment.status = "refunded";
     overpayment.resolvedAt = overpayment.resolvedAt ?? new Date();
     await overpayment.save();
+
+    await markPartnerNotificationsRead(overpayment.partnerId, {
+      paymentId: overpayment.paymentId,
+      types: ["overpayment_pending"],
+    });
 
     const dest =
       overpayment.refundAccountName && overpayment.refundAccountNumber
