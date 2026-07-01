@@ -12,29 +12,56 @@ function monthLabel(year: number, month: number) {
   });
 }
 
-function lastCalendarMonths(count: number) {
-  const now = new Date();
-  const buckets: Array<{ year: number; month: number; label: string }> = [];
-  for (let i = count - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    buckets.push({
-      year: d.getFullYear(),
-      month: d.getMonth() + 1,
-      label: monthLabel(d.getFullYear(), d.getMonth() + 1),
-    });
-  }
-  return buckets;
+function isAfterCurrentMonth(year: number, month: number, now = new Date()) {
+  const cy = now.getFullYear();
+  const cm = now.getMonth() + 1;
+  return year > cy || (year === cy && month > cm);
 }
 
-function paymentInMonth(
-  payment: Payment & { createdAt?: Date },
-  year: number,
-  month: number
-) {
-  const created = (payment as Payment & { createdAt?: Date }).createdAt;
-  if (!created) return false;
-  const d = new Date(created);
-  return d.getFullYear() === year && d.getMonth() + 1 === month;
+/** Ledger-based chart: paidKobo per month, extends into future when overpayment credit pre-pays months. */
+function buildMonthlyCollections(partnerMonths: PartnerMonth[], lookbackMonths: number) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+
+  const start = new Date(currentYear, currentMonth - 1 - (lookbackMonths - 1), 1);
+  let end = new Date(currentYear, currentMonth - 1, 1);
+
+  for (const m of partnerMonths) {
+    const d = new Date(m.year, m.month - 1, 1);
+    if (d > end && m.paidKobo > 0) end = d;
+  }
+
+  const buckets: Array<{ year: number; month: number; label: string }> = [];
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    buckets.push({
+      year: cursor.getFullYear(),
+      month: cursor.getMonth() + 1,
+      label: monthLabel(cursor.getFullYear(), cursor.getMonth() + 1),
+    });
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  return buckets.map((bucket) => {
+    const rows = partnerMonths.filter(
+      (m) => m.year === bucket.year && m.month === bucket.month
+    );
+    const expectedKobo = rows.reduce((sum, m) => sum + m.expectedKobo, 0);
+    const collectedKobo = rows.reduce((sum, m) => sum + m.paidKobo, 0);
+    const future = isAfterCurrentMonth(bucket.year, bucket.month, now);
+    const prepaid = future && collectedKobo > 0;
+
+    return {
+      year: bucket.year,
+      month: bucket.month,
+      label: bucket.label,
+      expected: koboToNaira(expectedKobo),
+      collected: koboToNaira(collectedKobo),
+      isFuture: future,
+      prepaid,
+    };
+  });
 }
 
 dashboardRouter.get("/summary", async (_req, res, next) => {
@@ -81,27 +108,8 @@ dashboardRouter.get("/summary", async (_req, res, next) => {
         ? Math.min(100, Math.round((collectedThisMonthKobo / expectedThisMonthKobo) * 100))
         : 0;
 
-    const chartMonths = lastCalendarMonths(6).map((bucket) => {
-      const expectedKobo = partnerMonths
-        .filter((m) => m.year === bucket.year && m.month === bucket.month)
-        .reduce((sum, m) => sum + m.expectedKobo, 0);
-
-      const collectedKobo = payments
-        .filter(
-          (p) =>
-            p.classification !== "unmatched" &&
-            paymentInMonth(p as Payment & { createdAt?: Date }, bucket.year, bucket.month)
-        )
-        .reduce((sum, p) => sum + p.amountKobo, 0);
-
-      return {
-        year: bucket.year,
-        month: bucket.month,
-        label: bucket.label,
-        expected: koboToNaira(expectedKobo),
-        collected: koboToNaira(collectedKobo),
-      };
-    });
+    const monthlyCollections6 = buildMonthlyCollections(partnerMonths, 6);
+    const monthlyCollections12 = buildMonthlyCollections(partnerMonths, 12);
 
     const pendingOverpaymentCount = await OverpaymentCase.count({
       where: { status: "pending_choice" },
@@ -138,7 +146,9 @@ dashboardRouter.get("/summary", async (_req, res, next) => {
         collectionRate,
         membersPaidThisMonth,
         membersTrackedThisMonth,
-        monthlyCollections: chartMonths,
+        monthlyCollections: monthlyCollections6,
+        monthlyCollections6,
+        monthlyCollections12,
         unmatchedPayments: unmatched.length,
         totalArrears: koboToNaira(totalArrearsKobo),
         pendingOverpayments: pendingOverpaymentCount,

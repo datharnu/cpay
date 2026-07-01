@@ -124,10 +124,11 @@ export default function DashboardPage() {
 
       <PageSection
         title="Collections overview"
-        description="Expected vs collected partnership dues — last 6 months from Nomba webhook payments."
+        description="Expected vs collected from the monthly ledger. Future months appear automatically when overpayment credit is applied."
       >
         <DashboardCollectionsChart
-          months={summary?.monthlyCollections ?? []}
+          months6={summary?.monthlyCollections6 ?? summary?.monthlyCollections ?? []}
+          months12={summary?.monthlyCollections12 ?? []}
           isLoading={summaryLoading}
         />
       </PageSection>

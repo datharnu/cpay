@@ -35,6 +35,26 @@ export type DashboardSummary = {
     label: string;
     expected: number;
     collected: number;
+    isFuture?: boolean;
+    prepaid?: boolean;
+  }>;
+  monthlyCollections6: Array<{
+    year: number;
+    month: number;
+    label: string;
+    expected: number;
+    collected: number;
+    isFuture?: boolean;
+    prepaid?: boolean;
+  }>;
+  monthlyCollections12: Array<{
+    year: number;
+    month: number;
+    label: string;
+    expected: number;
+    collected: number;
+    isFuture?: boolean;
+    prepaid?: boolean;
   }>;
   unmatchedPayments: number;
   totalArrears: number;
