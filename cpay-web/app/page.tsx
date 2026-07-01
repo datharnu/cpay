@@ -133,7 +133,7 @@ export default function DashboardPage() {
         />
       </PageSection>
 
-      {(summary?.pendingOverpayments ?? 0) > 0 && (
+      {/* {(summary?.pendingOverpayments ?? 0) > 0 && (
         <AlertSection
           title="Awaiting overpayment decision"
           description="Extra amount after monthly dues — apply to next month or refund via Nomba Transfers."
@@ -155,7 +155,7 @@ export default function DashboardPage() {
             ))}
           </ul>
         </AlertSection>
-      )}
+      )} */}
 
       {(summary?.pendingRefunds ?? 0) > 0 && (
         <AlertSection

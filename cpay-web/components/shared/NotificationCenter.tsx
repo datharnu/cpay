@@ -94,6 +94,7 @@ function FeedRow({
   title,
   message,
   meta,
+  animationIndex,
   onClick,
 }: {
   unread: boolean;
@@ -101,17 +102,21 @@ function FeedRow({
   title: string;
   message: string;
   meta: string;
+  animationIndex: number;
   onClick: () => void;
 }) {
   return (
-    <li>
+    <li
+      className="notification-item-enter"
+      style={{ animationDelay: `${80 + animationIndex * 70}ms` }}
+    >
       <button
         type="button"
         onClick={onClick}
         className={`group flex w-full gap-3 px-4 py-3.5 text-left transition ${
           unread
-            ? "bg-primary-subtle/50 hover:bg-primary-subtle/70"
-            : "hover:bg-white/30"
+            ? "bg-primary-subtle/60 hover:bg-primary-subtle/80"
+            : "bg-white/40 hover:bg-white/55"
         }`}
       >
         {icon}
@@ -171,10 +176,20 @@ export function NotificationCenter() {
     const rect = btn.getBoundingClientRect();
     const width = Math.min(380, window.innerWidth - 24);
     const right = Math.max(12, window.innerWidth - rect.right);
-    const top = rect.bottom + 10;
+    const top = Math.min(rect.bottom + 10, window.innerHeight - 24);
 
     setPanelStyle({ top, right, width });
   }, []);
+
+  function toggleOpen() {
+    setOpen((current) => {
+      const next = !current;
+      if (next) {
+        requestAnimationFrame(updatePanelPosition);
+      }
+      return next;
+    });
+  }
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -256,23 +271,26 @@ export function NotificationCenter() {
       <button
         type="button"
         aria-label="Close notifications"
-        className="notification-backdrop-enter fixed inset-0 z-[190] bg-[#1a1825]/20 backdrop-blur-[2px]"
+        className="notification-backdrop-enter fixed inset-0 z-[190] bg-[#1a1825]/25 backdrop-blur-[3px]"
         onClick={() => setOpen(false)}
       />
 
       <div
-        ref={panelRef}
-        role="dialog"
-        aria-label="Notifications"
-        className="notification-panel-enter fixed z-[200] flex max-h-[min(78vh,32rem)] flex-col overflow-hidden rounded-2xl border border-white/70 shadow-[0_24px_60px_rgba(40,30,80,0.22)] liquid-glass liquid-glass-card"
+        className="notification-panel-enter fixed z-[200]"
         style={{
           top: panelStyle.top,
           right: panelStyle.right,
           width: panelStyle.width,
-          "--liquid-blur": "40px",
-        } as React.CSSProperties}
+        }}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-white/45 px-4 py-3.5">
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-label="Notifications"
+          className="flex max-h-[min(78vh,32rem)] flex-col overflow-hidden rounded-2xl border border-white/80 bg-[rgba(255,255,255,0.94)] shadow-[0_24px_60px_rgba(40,30,80,0.28)] backdrop-blur-xl"
+        >
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-white/60 bg-white/50 px-4 py-3.5">
           <div>
             <div className="flex items-center gap-2">
               <p className="font-semibold text-text-primary">Notifications</p>
@@ -307,9 +325,9 @@ export function NotificationCenter() {
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="max-h-[min(58vh,24rem)] overflow-y-auto overscroll-contain bg-white/30">
           {feed.length === 0 ? (
-            <div className="flex flex-col items-center px-6 py-12 text-center">
+            <div className="notification-item-enter flex flex-col items-center px-6 py-12 text-center">
               <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/35 text-text-muted">
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0" />
@@ -324,14 +342,15 @@ export function NotificationCenter() {
             <>
               {unreadFeed.length > 0 ? (
                 <div>
-                  <p className="sticky top-0 z-[1] border-b border-white/30 bg-white/25 px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-text-muted backdrop-blur-sm">
+                  <p className="sticky top-0 z-[1] border-b border-white/50 bg-white/80 px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-text-muted backdrop-blur-sm">
                     New
                   </p>
-                  <ul className="divide-y divide-white/30">
-                    {unreadFeed.map((row) =>
+                  <ul className="divide-y divide-white/50">
+                    {unreadFeed.map((row, index) =>
                       row.source === "server" ? (
                         <FeedRow
                           key={`server-${row.item.id}`}
+                          animationIndex={index}
                           unread
                           icon={<NotificationIcon type={row.item.type} />}
                           title={row.item.title}
@@ -342,6 +361,7 @@ export function NotificationCenter() {
                       ) : (
                         <FeedRow
                           key={`activity-${row.item.id}`}
+                          animationIndex={index}
                           unread
                           icon={<NotificationIcon tone={row.item.tone} />}
                           title={row.item.title}
@@ -358,15 +378,16 @@ export function NotificationCenter() {
               {readFeed.length > 0 ? (
                 <div>
                   {unreadFeed.length > 0 ? (
-                    <p className="sticky top-0 z-[1] border-b border-white/30 bg-white/20 px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-text-muted backdrop-blur-sm">
+                    <p className="sticky top-0 z-[1] border-b border-white/50 bg-white/75 px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-text-muted backdrop-blur-sm">
                       Earlier
                     </p>
                   ) : null}
-                  <ul className="divide-y divide-white/25">
-                    {readFeed.map((row) =>
+                  <ul className="divide-y divide-white/40">
+                    {readFeed.map((row, index) =>
                       row.source === "server" ? (
                         <FeedRow
                           key={`server-${row.item.id}`}
+                          animationIndex={unreadFeed.length + index}
                           unread={false}
                           icon={<NotificationIcon type={row.item.type} />}
                           title={row.item.title}
@@ -377,6 +398,7 @@ export function NotificationCenter() {
                       ) : (
                         <FeedRow
                           key={`activity-${row.item.id}`}
+                          animationIndex={unreadFeed.length + index}
                           unread={false}
                           icon={<NotificationIcon tone={row.item.tone} />}
                           title={row.item.title}
@@ -393,7 +415,7 @@ export function NotificationCenter() {
           )}
         </div>
 
-        <div className="border-t border-white/45 bg-white/15 px-4 py-2.5">
+        <div className="shrink-0 border-t border-white/60 bg-white/50 px-4 py-2.5">
           <Link
             href="/"
             onClick={() => setOpen(false)}
@@ -405,6 +427,7 @@ export function NotificationCenter() {
             </svg>
           </Link>
         </div>
+        </div>
       </div>
     </>
   ) : null;
@@ -414,7 +437,7 @@ export function NotificationCenter() {
       <button
         ref={buttonRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggleOpen}
         className={`relative flex h-10 w-10 items-center justify-center rounded-xl border transition ${
           open
             ? "border-primary/40 bg-primary-muted text-primary shadow-sm"

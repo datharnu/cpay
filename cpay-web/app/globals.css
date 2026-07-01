@@ -25,11 +25,22 @@
 @keyframes notification-panel-enter {
   from {
     opacity: 0;
-    transform: translateY(-0.5rem) scale(0.98);
+    transform: translateY(-0.35rem) scale(0.97);
   }
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes notification-item-enter {
+  from {
+    opacity: 0;
+    transform: translateY(1.1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -43,7 +54,11 @@
 }
 
 .notification-panel-enter {
-  animation: notification-panel-enter 0.2s ease-out forwards;
+  animation: notification-panel-enter 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.notification-item-enter {
+  animation: notification-item-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 .notification-backdrop-enter {
