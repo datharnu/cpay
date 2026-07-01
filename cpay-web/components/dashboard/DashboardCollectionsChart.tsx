@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { formatMoney } from "@/components/shared/AppShell";
 
 export type MonthlyCollectionBucket = {
@@ -56,8 +57,14 @@ export function DashboardCollectionsChart({
   isLoading?: boolean;
 }) {
   const [range, setRange] = useState<ChartRange>(6);
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [hovered, setHovered] = useState<{
+    index: number;
+    rect: DOMRect;
+  } | null>(null);
+  const [mounted, setMounted] = useState(false);
   const months = range === 12 ? months12 : months6;
+
+  useEffect(() => setMounted(true), []);
 
   const maxValue = Math.max(
     ...months.flatMap((m) => [m.expected, m.collected]),
@@ -99,6 +106,8 @@ export function DashboardCollectionsChart({
     );
   }
 
+  const hoveredMonth = hovered !== null ? months[hovered.index] : null;
+
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -112,7 +121,7 @@ export function DashboardCollectionsChart({
             Expected
           </span>
           <span className="flex items-center gap-2 text-text-secondary">
-            <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500 ring-1 ring-emerald-600/40" />
+            <span className="h-2.5 w-2.5 rounded-sm border border-emerald-700/50 bg-emerald-600" />
             Pre-paid (credit)
           </span>
         </div>
@@ -123,82 +132,133 @@ export function DashboardCollectionsChart({
         {months.map((month, index) => {
           const collectedPct = barHeightPct(month.collected, tickMax);
           const expectedPct = barHeightPct(month.expected, tickMax);
-          const isHovered = hoveredIndex === index;
+          const isHovered = hovered?.index === index;
           const collectedClass = month.prepaid
-            ? "bg-emerald-500 ring-1 ring-emerald-700/30"
-            : "bg-primary shadow-sm";
+            ? "border border-emerald-700/60 bg-emerald-600"
+            : "border border-primary-hover/25 bg-primary";
 
           return (
             <div
               key={`${month.label}-${month.isFuture ? "f" : "p"}`}
               className="relative flex min-w-[2.75rem] flex-1 flex-col items-center gap-2"
-              onMouseEnter={() => setHoveredIndex(index)}
-              onMouseLeave={() => setHoveredIndex(null)}
-              onFocus={() => setHoveredIndex(index)}
-              onBlur={() => setHoveredIndex(null)}
+              onMouseEnter={(e) =>
+                setHovered({ index, rect: e.currentTarget.getBoundingClientRect() })
+              }
+              onMouseLeave={() => setHovered(null)}
             >
-              {isHovered ? (
-                <div
-                  className="pointer-events-none absolute bottom-[calc(100%-0.25rem)] left-1/2 z-20 min-w-[9.5rem] -translate-x-1/2 rounded-xl border border-white/70 bg-[#1a1825]/95 px-3 py-2 text-left text-white shadow-[0_12px_32px_rgba(26,24,37,0.35)]"
-                  role="tooltip"
-                >
-                  <p className="text-[11px] font-semibold text-white/90">{month.label}</p>
-                  <div className="mt-1.5 space-y-1 text-[11px]">
-                    <p className="flex items-center justify-between gap-3">
-                      <span className="text-white/70">Collected</span>
-                      <span className="font-semibold tabular-nums">{formatMoney(month.collected)}</span>
-                    </p>
-                    <p className="flex items-center justify-between gap-3">
-                      <span className="text-white/70">Expected</span>
-                      <span className="font-semibold tabular-nums">{formatMoney(month.expected)}</span>
-                    </p>
-                    {month.prepaid ? (
-                      <p className="pt-0.5 text-[10px] font-medium text-emerald-300">Pre-paid via overpayment credit</p>
-                    ) : null}
-                  </div>
-                  <span className="absolute left-1/2 top-full -mt-px block h-2 w-2 -translate-x-1/2 rotate-45 border-b border-r border-white/70 bg-[#1a1825]/95" />
-                </div>
-              ) : null}
-
               <div
-                className="flex w-full items-end justify-center gap-1 sm:gap-1.5"
+                className="flex w-full shrink-0 items-end justify-center gap-1 sm:gap-1.5"
                 style={{ height: PLOT_HEIGHT_PX }}
               >
                 <div
-                  className={`w-[42%] max-w-8 rounded-t-md transition-all duration-200 ${collectedClass} ${
-                    isHovered ? "brightness-110 scale-y-[1.02] origin-bottom" : ""
+                  className={`w-[42%] max-w-8 rounded-t-[5px] transition-colors duration-150 ${collectedClass} ${
+                    isHovered ? "brightness-105" : ""
                   }`}
                   style={{ height: `${collectedPct}%` }}
                   aria-label={`Collected ${formatMoney(month.collected)}`}
                 />
                 <div
-                  className={`w-[42%] max-w-8 rounded-t-md border border-slate-500/50 bg-slate-500/35 transition-all duration-200 ${
-                    isHovered ? "brightness-110 scale-y-[1.02] origin-bottom bg-slate-500/50" : ""
+                  className={`w-[42%] max-w-8 rounded-t-[5px] border border-slate-500/55 bg-slate-400/80 transition-colors duration-150 ${
+                    isHovered ? "brightness-105 bg-slate-400" : ""
                   }`}
                   style={{ height: `${expectedPct}%` }}
                   aria-label={`Expected ${formatMoney(month.expected)}`}
                 />
               </div>
 
-              <div className="text-center">
-                <p
-                  className={`text-[11px] font-semibold ${
-                    month.isFuture ? "text-emerald-800" : "text-text-primary"
-                  } ${isHovered ? "text-primary" : ""}`}
-                >
-                  {month.label}
-                </p>
-                <p className="text-[10px] tabular-nums text-text-muted">
+              <div className="flex min-h-[2.35rem] w-full flex-col items-center justify-start gap-0.5 text-center">
+                <div className="flex flex-wrap items-center justify-center gap-1">
+                  <p
+                    className={`text-[11px] font-semibold leading-tight ${
+                      month.isFuture ? "text-emerald-800" : "text-text-primary"
+                    } ${isHovered ? "text-primary" : ""}`}
+                  >
+                    {month.label}
+                  </p>
+                  {month.prepaid ? (
+                    <span className="rounded px-1 py-px text-[8px] font-bold uppercase tracking-wide text-emerald-800 ring-1 ring-emerald-700/25 bg-emerald-50">
+                      Credit
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-[10px] leading-tight tabular-nums text-text-muted">
                   {formatMoney(month.collected)}
                 </p>
-                {month.prepaid ? (
-                  <p className="text-[9px] font-medium text-emerald-700">Pre-paid</p>
-                ) : null}
               </div>
             </div>
           );
         })}
       </ChartFrame>
+
+      {mounted && hovered && hoveredMonth
+        ? createPortal(
+            <ChartTooltip month={hoveredMonth} anchor={hovered.rect} />,
+            document.body
+          )
+        : null}
+    </div>
+  );
+}
+
+function ChartTooltip({
+  month,
+  anchor,
+}: {
+  month: MonthlyCollectionBucket;
+  anchor: DOMRect;
+}) {
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [shiftX, setShiftX] = useState(0);
+
+  useEffect(() => {
+    const el = tooltipRef.current;
+    if (!el) return;
+
+    const margin = 12;
+    const rect = el.getBoundingClientRect();
+    let nextShift = 0;
+
+    if (rect.left < margin) nextShift = margin - rect.left;
+    else if (rect.right > window.innerWidth - margin) {
+      nextShift = window.innerWidth - margin - rect.right;
+    }
+
+    setShiftX(nextShift);
+  }, [anchor.left, anchor.width, month.label]);
+
+  const centerX = anchor.left + anchor.width / 2;
+
+  return (
+    <div
+      ref={tooltipRef}
+      role="tooltip"
+      className="pointer-events-none fixed z-[300] min-w-[10rem] max-w-[14rem] rounded-xl border border-white/70 bg-[#1a1825] px-3 py-2.5 text-left text-white shadow-[0_12px_32px_rgba(26,24,37,0.4)]"
+      style={{
+        left: centerX + shiftX,
+        top: anchor.top - 10,
+        transform: "translate(-50%, -100%)",
+      }}
+    >
+      <p className="text-[11px] font-semibold text-white/90">{month.label}</p>
+      <div className="mt-1.5 space-y-1 text-[11px]">
+        <p className="flex items-center justify-between gap-4">
+          <span className="text-white/70">Collected</span>
+          <span className="font-semibold tabular-nums">{formatMoney(month.collected)}</span>
+        </p>
+        <p className="flex items-center justify-between gap-4">
+          <span className="text-white/70">Expected</span>
+          <span className="font-semibold tabular-nums">{formatMoney(month.expected)}</span>
+        </p>
+        {month.prepaid ? (
+          <p className="pt-0.5 text-[10px] font-medium text-emerald-300">
+            Pre-paid via overpayment credit
+          </p>
+        ) : null}
+      </div>
+      <span
+        className="absolute left-1/2 top-full -mt-px block h-2.5 w-2.5 -translate-x-1/2 rotate-45 border-b border-r border-white/70 bg-[#1a1825]"
+        style={{ marginLeft: -shiftX }}
+      />
     </div>
   );
 }
@@ -251,7 +311,7 @@ function ChartFrame({
           })}
         </div>
 
-        <div className="relative flex items-end justify-between gap-1 sm:gap-2">{children}</div>
+        <div className="relative flex items-start justify-between gap-1 sm:gap-2">{children}</div>
       </div>
     </div>
   );

@@ -47,13 +47,11 @@ Partner.init(
     joinedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
     partnershipStartYear: {
       type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: () => new Date().getFullYear(),
+      allowNull: true,
     },
     partnershipStartMonth: {
       type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: () => new Date().getMonth() + 1,
+      allowNull: true,
     },
     status: {
       type: DataTypes.ENUM("active", "inactive"),

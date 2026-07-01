@@ -41,28 +41,6 @@ function isBeforePartnershipStart(
   return year < sy || (year === sy && month < sm);
 }
 
-/** Months eligible when finance applies an overpayment forward (after pledge start, not current month). */
-function isEligibleForForwardCredit(
-  year: number,
-  month: number,
-  partner: Partner
-): boolean {
-  if (isBeforePartnershipStart(year, month, partner)) return false;
-
-  const now = new Date();
-  const cy = now.getFullYear();
-  const cm = now.getMonth() + 1;
-  const start = getPartnershipStart(partner);
-  const partnershipBeginsInFuture =
-    start > new Date(cy, cm - 1, 1);
-
-  if (partnershipBeginsInFuture) {
-    return year > cy || (year === cy && month >= (partner.partnershipStartMonth ?? cm));
-  }
-
-  return year > cy || (year === cy && month > cm);
-}
-
 export async function ensurePartnerMonths(partner: Partner): Promise<void> {
   const now = new Date();
   const end = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -134,57 +112,11 @@ function monthLabel(year: number, month: number): string {
   });
 }
 
-/** Add one partnership month row immediately after the latest existing row (or next calendar month). */
-async function ensureMonthAfterLatest(partner: Partner): Promise<PartnerMonth> {
-  const latest = await PartnerMonth.findOne({
-    where: { partnerId: partner.id },
-    order: [
-      ["year", "DESC"],
-      ["month", "DESC"],
-    ],
-  });
-
-  const cursor = latest
-    ? new Date(latest.year, latest.month, 1)
-    : new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1);
-
-  const year = cursor.getFullYear();
-  const month = cursor.getMonth() + 1;
-
-  const [row] = await PartnerMonth.findOrCreate({
-    where: { partnerId: partner.id, year, month },
-    defaults: {
-      partnerId: partner.id,
-      year,
-      month,
-      expectedKobo: partner.monthlyCommitmentKobo,
-      paidKobo: 0,
-      status: "pending",
-    },
-  });
-
-  if (row.expectedKobo !== partner.monthlyCommitmentKobo) {
-    row.expectedKobo = partner.monthlyCommitmentKobo;
-    await row.save();
-  }
-
-  return row;
-}
-
-function isAfterCurrentMonth(year: number, month: number): boolean {
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1;
-  return year > currentYear || (year === currentYear && month > currentMonth);
-}
-
-/** First unpaid month strictly after the current calendar month. */
-async function ensureEarliestUnpaidFutureMonth(partner: Partner): Promise<PartnerMonth> {
-  const now = new Date();
-  const start = getPartnershipStart(partner);
-  const nextCalendar = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  let cursor = start > new Date(now.getFullYear(), now.getMonth(), 1) ? start : nextCalendar;
-  if (cursor < start) cursor = start;
+/** First unpaid month on or after the pledged partnership start. */
+async function ensureEarliestUnpaidPartnershipMonth(
+  partner: Partner
+): Promise<PartnerMonth> {
+  let cursor = getPartnershipStart(partner);
 
   while (true) {
     const year = cursor.getFullYear();
@@ -214,13 +146,12 @@ async function ensureEarliestUnpaidFutureMonth(partner: Partner): Promise<Partne
 }
 
 /**
- * Spread kobo across earliest unpaid month(s), creating future month rows as needed.
- * With startAfterCurrentMonth: skips current/past months (₦100 → Jul + Aug at ₦50/mo).
+ * Spread kobo from the earliest unpaid partnership month forward, creating rows as needed.
+ * ₦100 at ₦50/mo starting July → Jul + Aug.
  */
 async function applyKoboAcrossMonths(
   partner: Partner,
-  amountKobo: number,
-  options?: { startAfterCurrentMonth?: boolean }
+  amountKobo: number
 ): Promise<{
   appliedKobo: number;
   remainingKobo: number;
@@ -248,12 +179,7 @@ async function applyKoboAcrossMonths(
     let appliedThisPass = false;
 
     for (const row of months) {
-      if (
-        options?.startAfterCurrentMonth &&
-        !isEligibleForForwardCredit(row.year, row.month, partner)
-      ) {
-        continue;
-      }
+      if (isBeforePartnershipStart(row.year, row.month, partner)) continue;
 
       const due = row.expectedKobo - row.paidKobo;
       if (due <= 0) continue;
@@ -273,11 +199,7 @@ async function applyKoboAcrossMonths(
     }
 
     if (remaining > 0 && !appliedThisPass) {
-      if (options?.startAfterCurrentMonth) {
-        await ensureEarliestUnpaidFutureMonth(partner);
-      } else {
-        await ensureMonthAfterLatest(partner);
-      }
+      await ensureEarliestUnpaidPartnershipMonth(partner);
       continue;
     }
 
@@ -354,7 +276,8 @@ export async function rebuildPartnerLedgerExcluding(
 }
 
 /**
- * Re-allocate a full overpayment to future months only (Jul + Aug for ₦100 at ₦50/mo).
+ * Re-allocate a full overpayment from the pledged start month forward.
+ * ₦100 at ₦50/mo from July → Jul + Aug; ₦300 → Jul through Dec.
  */
 export async function applyOverpaymentToFutureMonths(
   partnerId: string,
@@ -370,9 +293,7 @@ export async function applyOverpaymentToFutureMonths(
 
   await rebuildPartnerLedgerExcluding(partnerId, paymentId);
 
-  const result = await applyKoboAcrossMonths(partner, payment.amountKobo, {
-    startAfterCurrentMonth: true,
-  });
+  const result = await applyKoboAcrossMonths(partner, payment.amountKobo);
 
   partner.creditBalanceKobo = result.remainingKobo;
   await partner.save();
