@@ -11,6 +11,7 @@ import { importMissingNombaPayments } from "../services/importNombaPayments";
 import { reprocessUnmatchedPayments } from "../services/reconciliation";
 import {
   getTransferStatus,
+  listBanks,
   lookupBankAccount,
   sendBankTransfer,
 } from "../services/nombaClient";
@@ -71,6 +72,17 @@ reconciliationRouter.get("/partners/:id/nomba-transactions", async (req, res) =>
   } catch (err) {
     res.status(502).json({
       message: err instanceof Error ? err.message : "Failed to fetch Nomba transactions",
+    });
+  }
+});
+
+reconciliationRouter.get("/banks", async (_req, res) => {
+  try {
+    const banks = await listBanks();
+    res.json({ data: banks });
+  } catch (err) {
+    res.status(502).json({
+      message: err instanceof Error ? err.message : "Failed to fetch banks",
     });
   }
 });

@@ -245,6 +245,26 @@ export async function requeryTransaction(sessionId: string) {
   );
 }
 
+export type NombaBank = {
+  code: string;
+  name: string;
+};
+
+/** GET /v1/transfers/banks */
+export async function listBanks(): Promise<NombaBank[]> {
+  const json = await nombaRequest<{ results: NombaBank[] } | NombaBank[]>(
+    "/v1/transfers/banks",
+    { method: "GET" }
+  );
+
+  const raw = json.data;
+  const banks = Array.isArray(raw) ? raw : (raw?.results ?? []);
+
+  return banks
+    .filter((bank) => bank.code && bank.name)
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 /** POST /v1/transfers/bank/lookup */
 export async function lookupBankAccount(bankCode: string, accountNumber: string) {
   const json = await nombaRequest<{ accountName: string; accountNumber: string }>(

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatMoney, StatusBadge } from "@/components/shared/AppShell";
 import { PageSection } from "@/components/shared/ui";
 import { PaymentsTable, type PaymentTableRow } from "@/components/partners/PaymentsTable";
-import { useResolveOverpayment, useCheckRefundStatus } from "@/hooks/useCpay";
+import { useNombaBanks, useResolveOverpayment, useCheckRefundStatus } from "@/hooks/useCpay";
 import { useNotificationActivity } from "@/hooks/useNotificationActivity";
 import { useToast } from "@/components/shared/Toast";
 import type { PartnerDetail, ResolveOverpaymentInput } from "@/types";
@@ -257,9 +257,18 @@ function OverpaymentActionBlock({ item }: { item: OverpaymentRow }) {
   const { success, warning, error: toastError } = useToast();
   const { markRead } = useNotificationActivity();
   const [mode, setMode] = useState<"pick" | "refund">("pick");
-  const [bankCode, setBankCode] = useState("058");
+  const [bankCode, setBankCode] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [accountName, setAccountName] = useState("");
+  const banksQuery = useNombaBanks(mode === "refund");
+
+  useEffect(() => {
+    if (!bankCode && banksQuery.data?.length) {
+      const preferred =
+        banksQuery.data.find((bank) => bank.code === "058") ?? banksQuery.data[0];
+      setBankCode(preferred.code);
+    }
+  }, [bankCode, banksQuery.data]);
 
   async function handleCredit() {
     const result = await resolve.mutateAsync({
@@ -357,7 +366,7 @@ function OverpaymentActionBlock({ item }: { item: OverpaymentRow }) {
             </span>
             <p className="mt-3 font-semibold text-text-primary">Refund to bank</p>
             <p className="mt-1 text-sm text-text-secondary">
-              Send the excess back via Nomba Transfers (use the recipient bank code, e.g. GTBank = 058).
+              Send the excess back to the member&apos;s Nigerian bank account via Nomba Transfers.
             </p>
             <span className="mt-3 inline-flex text-sm font-medium text-primary group-hover:underline">
               Enter bank details →
@@ -377,29 +386,64 @@ function OverpaymentActionBlock({ item }: { item: OverpaymentRow }) {
             </button>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
-            <input
-              className="input-field"
-              placeholder="Bank code (e.g. 058 for GTBank)"
-              value={bankCode}
-              onChange={(e) => setBankCode(e.target.value)}
-              required
-            />
-            <input
-              className="input-field"
-              placeholder="Account number"
-              value={accountNumber}
-              onChange={(e) => setAccountNumber(e.target.value)}
-              required
-            />
-            <input
-              className="input-field"
-              placeholder="Account name"
-              value={accountName}
-              onChange={(e) => setAccountName(e.target.value)}
-              required
-            />
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-text-muted">Bank</label>
+              <select
+                className="input-field"
+                value={bankCode}
+                onChange={(e) => setBankCode(e.target.value)}
+                required
+                disabled={banksQuery.isLoading || banksQuery.isError}
+              >
+                {banksQuery.isLoading ? (
+                  <option value="">Loading banks…</option>
+                ) : banksQuery.isError ? (
+                  <option value="">Could not load banks</option>
+                ) : (
+                  <>
+                    <option value="" disabled>
+                      Select bank
+                    </option>
+                    {banksQuery.data?.map((bank) => (
+                      <option key={bank.code} value={bank.code}>
+                        {bank.name}
+                      </option>
+                    ))}
+                  </>
+                )}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-text-muted">Account number</label>
+              <input
+                className="input-field"
+                placeholder="10-digit NUBAN"
+                value={accountNumber}
+                onChange={(e) => setAccountNumber(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-text-muted">Account name</label>
+              <input
+                className="input-field"
+                placeholder="Name on account"
+                value={accountName}
+                onChange={(e) => setAccountName(e.target.value)}
+                required
+              />
+            </div>
           </div>
-          <button type="submit" disabled={resolve.isPending} className="btn-primary">
+          {banksQuery.isError ? (
+            <p className="text-xs text-red-700">
+              Bank list failed to load. Check the API is running and Nomba credentials are set.
+            </p>
+          ) : null}
+          <button
+            type="submit"
+            disabled={resolve.isPending || !bankCode || banksQuery.isLoading}
+            className="btn-primary"
+          >
             {resolve.isPending
               ? "Initiating…"
               : `Initiate refund ${formatMoney(item.excess)}`}

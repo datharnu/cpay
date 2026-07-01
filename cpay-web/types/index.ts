@@ -167,6 +167,11 @@ export type ResolveOverpaymentInput =
       accountName: string;
     };
 
+export type NombaBank = {
+  code: string;
+  name: string;
+};
+
 export type ReconciliationResult = {
   drifts: Array<{
     partnerName?: string;

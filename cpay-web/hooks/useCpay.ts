@@ -8,6 +8,7 @@ import type {
   PaymentListItem,
   ReconciliationResult,
   ResolveOverpaymentInput,
+  NombaBank,
 } from "@/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { CreatePartnerInput } from "@/app/utils/SchemaData";
@@ -144,6 +145,18 @@ export function usePendingOverpayments() {
       const { data } = await api.get<{ data: OverpaymentCase[] }>("/api/overpayments");
       return data.data;
     },
+  });
+}
+
+export function useNombaBanks(enabled = true) {
+  return useQuery({
+    queryKey: ["nomba", "banks"],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: NombaBank[] }>("/api/reconciliation/banks");
+      return data.data;
+    },
+    enabled,
+    staleTime: 60 * 60 * 1000,
   });
 }
 
