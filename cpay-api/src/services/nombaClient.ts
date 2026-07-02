@@ -348,9 +348,10 @@ export async function sendBankTransfer(input: {
   );
 }
 
-/** GET /v1/transfers/{merchantTxRef} */
+/** Requery outbound transfer — sub-account bank payouts use transactions API, not /v1/transfers */
 export async function getTransferStatus(merchantTxRef: string) {
+  const params = new URLSearchParams({ merchantTxRef });
   return nombaRequest<Record<string, unknown>>(
-    `/v1/transfers/${encodeURIComponent(merchantTxRef)}`
+    `/v1/transactions/accounts/${env.nomba.subAccountId}/single?${params.toString()}`
   );
 }

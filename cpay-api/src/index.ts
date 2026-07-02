@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import { corsOptions } from "./config/cors";
 import { env } from "./config/env";
 import { configureSqlite, sequelize } from "./db";
 import "./models";
@@ -44,11 +45,7 @@ async function main() {
 
   const app = express();
 
-  app.use(
-    cors({
-      origin: env.corsOrigins,
-    })
-  );
+  app.use(cors(corsOptions));
 
   app.post(
     "/webhooks/nomba",

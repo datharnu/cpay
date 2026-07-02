@@ -101,7 +101,7 @@ export function useLiveFinanceToasts() {
     for (const item of summary.recentPendingRefunds) {
       if (seen.current.refundPendingIds.has(item.id)) continue;
 
-      const message = `Refund pending Nomba settlement: ${formatMoney(item.excess)} for ${item.partnerName} → ${item.refundAccountName ?? "bank account"}. Sandbox outbound transfers are simulated.`;
+      const message = `Refund pending Nomba settlement: ${formatMoney(item.excess)} for ${item.partnerName} → ${item.refundAccountName ?? "bank account"}. Nomba may take a few minutes to confirm — use Check status on the partner page.`;
 
       warning(message, 9000);
       push({

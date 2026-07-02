@@ -13,6 +13,8 @@ export const env = {
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean),
+  /** Allow any https://*.vercel.app origin (preview + production deploys). */
+  corsAllowVercel: process.env.CORS_ALLOW_VERCEL !== "false",
   seedSandboxPartners: process.env.SEED_SANDBOX_PARTNERS === "true",
   nomba: {
     accountId: required("NOMBA_ACCOUNT_ID"),

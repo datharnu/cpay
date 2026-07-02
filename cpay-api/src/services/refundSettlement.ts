@@ -14,6 +14,10 @@ function isNombaTransferSettled(data: Record<string, unknown> | undefined): bool
     return true;
   }
 
+  if (["PENDING_BILLING", "NEW", "PROCESSING"].includes(status)) {
+    return false;
+  }
+
   const code = String(data.code ?? "");
   if (code === "00") return true;
 
