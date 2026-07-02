@@ -10,7 +10,6 @@ type SeenState = {
   ready: boolean;
   paymentIds: Set<string>;
   overpaymentIds: Set<string>;
-  refundPendingIds: Set<string>;
 };
 
 function classificationLabel(classification?: string | null): string {
@@ -30,15 +29,36 @@ function classificationLabel(classification?: string | null): string {
   }
 }
 
+function isCpayOutboundPaymentNoise(payment: {
+  classification?: string | null;
+  senderName?: string | null;
+  partnerName?: string | null;
+  nombaTransactionId?: string | null;
+}): boolean {
+  if (payment.classification !== "unmatched") return false;
+  const blob = [
+    payment.senderName,
+    payment.partnerName,
+    payment.nombaTransactionId,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return (
+    blob.includes("cpay overpay") ||
+    blob.includes("cpay overpayment") ||
+    blob.includes("cpay_overpay_")
+  );
+}
+
 export function useLiveFinanceToasts() {
   const { data: summary } = useDashboardSummary();
-  const { success, info, warning } = useToast();
+  const { success, info } = useToast();
   const { push } = useNotificationActivity();
   const seen = useRef<SeenState>({
     ready: false,
     paymentIds: new Set(),
     overpaymentIds: new Set(),
-    refundPendingIds: new Set(),
   });
 
   useEffect(() => {
@@ -46,20 +66,19 @@ export function useLiveFinanceToasts() {
 
     const paymentIds = new Set(summary.recentPayments.map((p) => p.id));
     const overpaymentIds = new Set(summary.recentOverpayments.map((o) => o.id));
-    const refundPendingIds = new Set(summary.recentPendingRefunds.map((r) => r.id));
 
     if (!seen.current.ready) {
       seen.current = {
         ready: true,
         paymentIds,
         overpaymentIds,
-        refundPendingIds,
       };
       return;
     }
 
     for (const payment of summary.recentPayments) {
       if (seen.current.paymentIds.has(payment.id)) continue;
+      if (isCpayOutboundPaymentNoise(payment)) continue;
 
       const payer =
         payment.partnerName ??
@@ -98,43 +117,12 @@ export function useLiveFinanceToasts() {
       });
     }
 
-    for (const item of summary.recentPendingRefunds) {
-      if (seen.current.refundPendingIds.has(item.id)) continue;
-
-      const message = `Refund pending Nomba settlement: ${formatMoney(item.excess)} for ${item.partnerName} → ${item.refundAccountName ?? "bank account"}. Nomba may take a few minutes to confirm — use Check status on the partner page.`;
-
-      warning(message, 9000);
-      push({
-        id: `refund-${item.id}`,
-        title: "Refund pending settlement",
-        message,
-        tone: "warning",
-        partnerId: item.partnerId,
-        partnerName: item.partnerName,
-        href: `/partners/${item.partnerId}`,
-      });
-    }
-
-    for (const id of seen.current.refundPendingIds) {
-      if (refundPendingIds.has(id)) continue;
-
-      const message = "Nomba confirmed refund settlement.";
-      success(message, 6000);
-      push({
-        id: `refund-settled-${id}`,
-        title: "Refund settled",
-        message,
-        tone: "success",
-      });
-    }
-
     seen.current = {
       ready: true,
       paymentIds,
       overpaymentIds,
-      refundPendingIds,
     };
-  }, [summary, success, info, warning, push]);
+  }, [summary, success, info, push]);
 }
 
 export function LiveFinanceToasts() {

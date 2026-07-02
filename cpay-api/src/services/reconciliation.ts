@@ -5,6 +5,7 @@ import { applyPaymentSideEffects } from "./paymentEffects";
 import {
   matchKnownVirtualAccount,
   parseNombaWebhookPayload,
+  isCpayOutboundTransferWebhook,
 } from "./webhookPayload";
 
 const PAYMENT_EVENTS = new Set([
@@ -55,6 +56,14 @@ export async function handleNombaWebhook(
   });
   if (existing) {
     return { ok: true, message: "duplicate ignored" };
+  }
+
+  if (isCpayOutboundTransferWebhook(payload)) {
+    await WebhookEvent.create({
+      requestId: fields.requestId,
+      eventType: fields.eventType || "outbound_transfer",
+    });
+    return { ok: true, message: "ignored outbound CPay refund transfer" };
   }
 
   if (!PAYMENT_EVENTS.has(fields.eventType) && fields.eventType) {
@@ -142,6 +151,7 @@ export async function reprocessUnmatchedPayments(): Promise<{
 
   let fixed = 0;
   let skipped = 0;
+  let purged = 0;
 
   for (const payment of rows) {
     if (!payment.rawPayload) {
@@ -154,6 +164,12 @@ export async function reprocessUnmatchedPayments(): Promise<{
       parsed = JSON.parse(payment.rawPayload);
     } catch {
       skipped += 1;
+      continue;
+    }
+
+    if (isCpayOutboundTransferWebhook(parsed)) {
+      await payment.destroy();
+      purged += 1;
       continue;
     }
 
@@ -196,7 +212,7 @@ export async function reprocessUnmatchedPayments(): Promise<{
     fixed += 1;
   }
 
-  const purged = await Payment.destroy({
+  purged += await Payment.destroy({
     where: { classification: "unmatched", amountKobo: 0 },
   });
 

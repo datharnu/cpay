@@ -17,6 +17,7 @@ import {
 import {
   trySettleOverpaymentRefund,
   settleAllPendingRefunds,
+  refundOutcomeMessage,
 } from "../services/refundSettlement";
 
 export const overpaymentsRouter = Router();
@@ -189,8 +190,8 @@ overpaymentsRouter.post("/:id/resolve", async (req, res) => {
       partnerId: partner.id,
       paymentId: overpayment.paymentId,
       type: "overpayment_pending",
-      title: "Refund initiated — pending settlement",
-      message: `${formatNaira(overpayment.excessKobo)} sent to ${resolvedName} (${verified.accountNumber || accountNumber}) via Nomba Transfers API. CPay will mark settled when Nomba confirms.`,
+      title: "Refund in progress",
+      message: `${formatNaira(overpayment.excessKobo)} transfer to ${resolvedName} (${verified.accountNumber || accountNumber}) initiated via Nomba.`,
     });
 
     let statusDetail: Record<string, unknown> | null = null;
@@ -201,9 +202,13 @@ overpaymentsRouter.post("/:id/resolve", async (req, res) => {
       statusDetail = null;
     }
 
-    const settled = await trySettleOverpaymentRefund(overpayment);
+    const settlement = await trySettleOverpaymentRefund(overpayment);
+    const outcome = refundOutcomeMessage(
+      settlement,
+      settlement.overpayment.excessKobo
+    );
 
-    if (settled.status === "refunded") {
+    if (settlement.outcome === "settled") {
       await markPartnerNotificationsRead(partner.id, {
         paymentId: overpayment.paymentId,
         types: ["overpayment_pending"],
@@ -212,17 +217,16 @@ overpaymentsRouter.post("/:id/resolve", async (req, res) => {
 
     res.json({
       data: {
-        id: settled.id,
-        status: settled.status,
-        choice: settled.choice,
-        amount: koboToNaira(settled.excessKobo),
-        merchantTxRef,
+        id: settlement.overpayment.id,
+        status: settlement.overpayment.status,
+        choice: settlement.overpayment.choice,
+        amount: koboToNaira(settlement.overpayment.excessKobo),
+        merchantTxRef: settlement.overpayment.merchantTxRef ?? merchantTxRef,
         transfer: transfer.data,
         statusDetail,
-        message:
-          settled.status === "refunded"
-            ? `${formatNaira(settled.excessKobo)} refund confirmed settled by Nomba.`
-            : `Refund initiated — pending Nomba settlement to ${resolvedName} (${verified.accountNumber || accountNumber}).`,
+        outcome: settlement.outcome,
+        tone: outcome.tone,
+        message: outcome.message,
       },
     });
   } catch (err) {
@@ -246,13 +250,16 @@ overpaymentsRouter.post("/:id/check-refund", async (req, res) => {
     return;
   }
 
-  const before = overpayment.status;
-  const settled = await trySettleOverpaymentRefund(overpayment);
+  const settlement = await trySettleOverpaymentRefund(overpayment);
+  const outcome = refundOutcomeMessage(
+    settlement,
+    settlement.overpayment.excessKobo
+  );
 
   let statusDetail: Record<string, unknown> | null = null;
-  if (settled.merchantTxRef) {
+  if (settlement.overpayment.merchantTxRef) {
     try {
-      const status = await getTransferStatus(settled.merchantTxRef);
+      const status = await getTransferStatus(settlement.overpayment.merchantTxRef);
       statusDetail = (status.data ?? null) as Record<string, unknown> | null;
     } catch {
       statusDetail = null;
@@ -261,15 +268,15 @@ overpaymentsRouter.post("/:id/check-refund", async (req, res) => {
 
   res.json({
     data: {
-      id: settled.id,
-      status: settled.status,
-      merchantTxRef: settled.merchantTxRef,
+      id: settlement.overpayment.id,
+      status: settlement.overpayment.status,
+      merchantTxRef: settlement.overpayment.merchantTxRef,
       statusDetail,
-      settled: before === "refund_pending" && settled.status === "refunded",
-      message:
-        settled.status === "refunded"
-          ? "Nomba confirmed settlement — refund complete."
-          : "Refund still pending — Nomba has not confirmed settlement yet.",
+      outcome: settlement.outcome,
+      tone: outcome.tone,
+      settled: settlement.outcome === "settled",
+      failed: settlement.outcome === "failed",
+      message: outcome.message,
     },
   });
 });

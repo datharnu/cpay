@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { formatMoney, StatusBadge } from "@/components/shared/AppShell";
 import { PageSection } from "@/components/shared/ui";
 import { PaymentsTable, type PaymentTableRow } from "@/components/partners/PaymentsTable";
+import { BankSearchSelect } from "@/components/partners/BankSearchSelect";
 import { useNombaBanks, useResolveOverpayment, useCheckRefundStatus } from "@/hooks/useCpay";
+import { useDebouncedBankLookup } from "@/hooks/useBankAccountLookup";
 import { useNotificationActivity } from "@/hooks/useNotificationActivity";
 import { useToast } from "@/components/shared/Toast";
 import type { PartnerDetail, ResolveOverpaymentInput } from "@/types";
@@ -261,14 +263,27 @@ function OverpaymentActionBlock({ item }: { item: OverpaymentRow }) {
   const [accountNumber, setAccountNumber] = useState("");
   const [accountName, setAccountName] = useState("");
   const banksQuery = useNombaBanks(mode === "refund");
+  const lookup = useDebouncedBankLookup(bankCode, accountNumber, mode === "refund");
 
   useEffect(() => {
-    if (!bankCode && banksQuery.data?.length) {
-      const preferred =
-        banksQuery.data.find((bank) => bank.code === "058") ?? banksQuery.data[0];
-      setBankCode(preferred.code);
+    if (lookup.accountName && lookup.verified) {
+      setAccountName(lookup.accountName);
     }
-  }, [bankCode, banksQuery.data]);
+  }, [lookup.accountName, lookup.verified]);
+
+  useEffect(() => {
+    if (mode !== "refund") {
+      setBankCode("");
+      setAccountNumber("");
+      setAccountName("");
+    }
+  }, [mode]);
+
+  function resetRefundForm() {
+    setBankCode("");
+    setAccountNumber("");
+    setAccountName("");
+  }
 
   async function handleCredit() {
     const result = await resolve.mutateAsync({
@@ -289,13 +304,25 @@ function OverpaymentActionBlock({ item }: { item: OverpaymentRow }) {
     };
     try {
       const result = await resolve.mutateAsync({ id: item.id, input });
-      warning(
+      const tone = (result.tone as "success" | "warning" | "error" | undefined) ??
+        (result.status === "refunded" ? "success" : "warning");
+      const message =
         result.message ??
-          `Refund initiated — ${formatMoney(item.excess)} pending Nomba settlement.`,
-        9000
-      );
+        (tone === "success"
+          ? `${formatMoney(item.excess)} refunded successfully.`
+          : `Refund initiated — ${formatMoney(item.excess)} pending Nomba settlement.`);
+
+      if (tone === "success") {
+        success(message, 8000);
+      } else if (tone === "error") {
+        toastError(message, 10000);
+      } else {
+        warning(message, 9000);
+      }
+
       markRead(`overpay-${item.id}`);
       setMode("pick");
+      resetRefundForm();
     } catch (err) {
       const message =
         err &&
@@ -379,7 +406,10 @@ function OverpaymentActionBlock({ item }: { item: OverpaymentRow }) {
             <p className="text-sm font-medium text-text-primary">Refund bank details</p>
             <button
               type="button"
-              onClick={() => setMode("pick")}
+              onClick={() => {
+                setMode("pick");
+                resetRefundForm();
+              }}
               className="text-xs font-medium text-text-muted hover:text-text-primary"
             >
               ← Back to options
@@ -387,53 +417,58 @@ function OverpaymentActionBlock({ item }: { item: OverpaymentRow }) {
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1">
-              <label className="text-xs font-medium text-text-muted">Bank</label>
-              <select
-                className="input-field"
-                value={bankCode}
-                onChange={(e) => setBankCode(e.target.value)}
-                required
-                disabled={banksQuery.isLoading || banksQuery.isError}
-              >
-                {banksQuery.isLoading ? (
-                  <option value="">Loading banks…</option>
-                ) : banksQuery.isError ? (
-                  <option value="">Could not load banks</option>
-                ) : (
-                  <>
-                    <option value="" disabled>
-                      Select bank
-                    </option>
-                    {banksQuery.data?.map((bank) => (
-                      <option key={bank.code} value={bank.code}>
-                        {bank.name}
-                      </option>
-                    ))}
-                  </>
-                )}
-              </select>
-            </div>
-            <div className="space-y-1">
               <label className="text-xs font-medium text-text-muted">Account number</label>
               <input
                 className="input-field"
+                inputMode="numeric"
                 placeholder="10-digit NUBAN"
                 value={accountNumber}
-                onChange={(e) => setAccountNumber(e.target.value)}
+                onChange={(e) => {
+                  setAccountNumber(e.target.value.replace(/\D/g, "").slice(0, 10));
+                  setAccountName("");
+                }}
                 required
+                maxLength={10}
               />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-text-muted">Bank</label>
+              {banksQuery.isLoading ? (
+                <input className="input-field" disabled placeholder="Loading banks…" />
+              ) : banksQuery.isError ? (
+                <input className="input-field" disabled placeholder="Could not load banks" />
+              ) : (
+                <BankSearchSelect
+                  banks={banksQuery.data ?? []}
+                  value={bankCode}
+                  onChange={(code) => {
+                    setBankCode(code);
+                    setAccountName("");
+                  }}
+                  disabled={banksQuery.isLoading || banksQuery.isError}
+                />
+              )}
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-text-muted">Account name</label>
               <input
                 className="input-field"
-                placeholder="Name on account"
+                placeholder={
+                  lookup.loading ? "Verifying…" : "Name on account"
+                }
                 value={accountName}
                 onChange={(e) => setAccountName(e.target.value)}
                 required
               />
             </div>
           </div>
+          {lookup.loading ? (
+            <p className="text-xs text-text-muted">Verifying account with Nomba…</p>
+          ) : lookup.verified && lookup.accountName ? (
+            <p className="text-xs text-emerald-800">Account verified via Nomba.</p>
+          ) : lookup.error ? (
+            <p className="text-xs text-amber-800">{lookup.error}</p>
+          ) : null}
           {banksQuery.isError ? (
             <p className="text-xs text-red-700">
               Bank list failed to load. Check the API is running and Nomba credentials are set.
@@ -441,7 +476,13 @@ function OverpaymentActionBlock({ item }: { item: OverpaymentRow }) {
           ) : null}
           <button
             type="submit"
-            disabled={resolve.isPending || !bankCode || banksQuery.isLoading}
+            disabled={
+              resolve.isPending ||
+              !bankCode ||
+              lookup.digits.length !== 10 ||
+              !accountName.trim() ||
+              banksQuery.isLoading
+            }
             className="btn-primary"
           >
             {resolve.isPending
@@ -460,7 +501,7 @@ function RefundPendingRow({
   item: OverpaymentRow;
 }) {
   const checkRefund = useCheckRefundStatus();
-  const { success, info } = useToast();
+  const { success, warning, error: toastError } = useToast();
   const { markRead } = useNotificationActivity();
 
   return (
@@ -482,15 +523,17 @@ function RefundPendingRow({
         onClick={async () => {
           const result = await checkRefund.mutateAsync(item.id);
           const text = result.message ?? "Status checked.";
-          if (
-            text.toLowerCase().includes("settled") ||
-            text.toLowerCase().includes("refunded")
-          ) {
-            success(text);
+          const tone = (result.tone as "success" | "warning" | "error" | undefined) ??
+            (result.failed ? "error" : result.settled ? "success" : "warning");
+
+          if (tone === "success") {
+            success(text, 8000);
             markRead(`refund-${item.id}`);
-            markRead(`refund-settled-${item.id}`);
+          } else if (tone === "error") {
+            toastError(text, 10000);
+            markRead(`refund-${item.id}`);
           } else {
-            info(text);
+            warning(text, 9000);
           }
         }}
         disabled={checkRefund.isPending}

@@ -149,6 +149,34 @@ export function parseNombaWebhookPayload(payload: unknown): {
   };
 }
 
+/** Outbound bank refunds must not be recorded as inbound VA payments. */
+export function isCpayOutboundTransferWebhook(payload: unknown): boolean {
+  const blob = JSON.stringify(payload).toLowerCase();
+  if (blob.includes("cpay_overpay_")) return true;
+  if (blob.includes("cpay overpayment refund")) return true;
+
+  const records = collectRecords(payload);
+  const merchantTxRef = pickFromRecords(records, [
+    "merchantTxRef",
+    "merchant_tx_ref",
+  ]);
+  if (merchantTxRef?.startsWith("cpay_overpay_")) return true;
+
+  const entryType = pickFromRecords(records, ["entryType", "entry_type"]);
+  const txType = pickFromRecords(records, ["type", "transactionType", "transaction_type"]);
+  if (
+    entryType?.toUpperCase() === "DEBIT" &&
+    txType?.toLowerCase() === "transfer"
+  ) {
+    return true;
+  }
+
+  const narration = pickFromRecords(records, ["narration", "Narration"]) ?? "";
+  if (narration.toLowerCase().includes("cpay overpayment")) return true;
+
+  return false;
+}
+
 /** Last resort: find a known partner VA anywhere in the webhook JSON blob. */
 export function matchKnownVirtualAccount(
   payload: unknown,

@@ -34,7 +34,7 @@ export default function DashboardPage() {
     ? new Date(dataUpdatedAt).toLocaleTimeString("en-NG")
     : null;
 
-  const recentPaymentRows = (summary?.recentPayments ?? []).slice(0, 8).map((p) => ({
+  const recentPaymentRows = (summary?.recentPayments ?? []).slice(0, 4).map((p) => ({
     id: p.id,
     amount: p.amount,
     classification: p.classification,
@@ -185,7 +185,7 @@ export default function DashboardPage() {
         </AlertSection>
       )}
 
-      {(summary?.unmatchedPayments ?? 0) > 0 && (
+      {/* {(summary?.unmatchedPayments ?? 0) > 0 && (
         <AlertSection
           title="Unmatched payments"
           description="Nomba sent a webhook CPay could not link to a member — retry matching or import from Nomba."
@@ -218,7 +218,7 @@ export default function DashboardPage() {
             ))}
           </ul>
         </AlertSection>
-      )}
+      )} */}
 
       {importMissing.isSuccess && (
         <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
