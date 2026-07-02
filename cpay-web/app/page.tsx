@@ -20,7 +20,6 @@ import {
   useImportMissingNomba,
   usePartners,
   useReconcileNomba,
-  useReprocessUnmatched,
 } from "@/hooks/useCpay";
 
 export default function DashboardPage() {
@@ -28,7 +27,6 @@ export default function DashboardPage() {
   const { data: partners, isLoading: partnersLoading } = usePartners();
   const reconcile = useReconcileNomba();
   const importMissing = useImportMissingNomba();
-  const reprocessUnmatched = useReprocessUnmatched();
 
   const lastUpdated = dataUpdatedAt
     ? new Date(dataUpdatedAt).toLocaleTimeString("en-NG")
