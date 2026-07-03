@@ -31,6 +31,13 @@ const SANDBOX_PARTNERS = [
 ] as const;
 
 export async function seedSandboxPartnersIfEmpty(): Promise<boolean> {
+  // Never auto-seed fixed demo VAs on live Nomba — that re-attaches old test accounts.
+  const baseUrl = process.env.NOMBA_BASE_URL ?? "";
+  if (baseUrl.includes("api.nomba.com")) {
+    console.log("[boot] Live Nomba — skipping auto-seed of demo partners.");
+    return false;
+  }
+
   const count = await Partner.count();
   if (count > 0) return false;
 

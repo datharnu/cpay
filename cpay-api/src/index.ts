@@ -43,7 +43,8 @@ async function main() {
     await syncPartnerVirtualAccountWebhooks();
   }
 
-  if (freshlySeeded) {
+  // Only pull historical Nomba payments when explicitly enabled (avoids re-polluting a clean demo).
+  if (freshlySeeded && process.env.IMPORT_NOMBA_ON_SEED === "true") {
     try {
       const result = await importMissingNombaPayments();
       console.log(
@@ -93,10 +94,8 @@ async function main() {
   app.use("/api/notifications", notificationsRouter);
   app.use("/api/overpayments", overpaymentsRouter);
   app.use("/api/reconciliation", reconciliationRouter);
-
-  if (process.env.NODE_ENV !== "production") {
-    app.use("/api/dev", devRouter);
-  }
+  // Reset + demo tools (reset-clean is secret-protected for live use).
+  app.use("/api/dev", devRouter);
 
   app.use(
     (
