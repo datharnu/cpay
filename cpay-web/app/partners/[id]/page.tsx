@@ -190,6 +190,23 @@ export default function PartnerDetailPage({
         )
       : null;
 
+  const initials = partner.fullName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+
+  const progress = Math.min(100, partner.progressPercent ?? 0);
+  const installment = partner.installmentAmount ?? partner.monthlyCommitment;
+  const nombaLabel = partner.nombaVaStatus
+    ? partner.nombaVaStatus.verified
+      ? partner.nombaVaStatus.expired || isInactive
+        ? "Expired on Nomba"
+        : "Active on Nomba"
+      : "Could not verify"
+    : null;
+
   return (
     <AppShell title={partner.fullName}>
       {isInactive ? (
@@ -200,132 +217,165 @@ export default function PartnerDetailPage({
         </div>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="card p-5">
-          <div className="flex items-start justify-between gap-3">
-            <p className="text-sm font-medium text-primary">Dedicated account number</p>
-            <StatusBadge status={partnerStatus} />
-          </div>
-          <p className="mt-3 font-mono text-3xl font-bold tracking-tight text-text-primary">
-            {partner.virtualAccountNumber ?? "—"}
-          </p>
-          <p className="mt-3 text-sm text-text-secondary">
-            {partner.bankName} · {partner.bankAccountName}
-          </p>
-          {!isInactive ? (
-            <p className="mt-4 rounded-lg bg-muted/60 px-3 py-2 text-sm text-text-primary">
-              Pay{" "}
-              <span className="font-semibold text-primary">
-                {formatMoney(partner.installmentAmount ?? partner.monthlyCommitment)}
-              </span>{" "}
-              {partner.frequencyLabel ?? "every month"} to this account.
-            </p>
-          ) : (
-            <p className="mt-4 rounded-lg bg-muted/60 px-3 py-2 text-sm text-text-secondary">
-              Account expired — no longer accepting partnership payments.
-            </p>
-          )}
-          {partner.nombaVaStatus && (
-            <p className="mt-3 text-xs font-medium text-text-secondary">
-              Nomba VA verify:{" "}
-              {partner.nombaVaStatus.verified
-                ? partner.nombaVaStatus.expired || isInactive
-                  ? "Expired on Nomba"
-                  : "Active on Nomba"
-                : "Could not verify"}
-            </p>
-          )}
-        </div>
+      <div className="card overflow-hidden">
+        <div className="relative px-5 py-5 sm:px-6 sm:py-6">
+          <div className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-primary/10 blur-2xl" />
+          <div className="pointer-events-none absolute -bottom-16 left-10 h-32 w-32 rounded-full bg-violet-400/10 blur-2xl" />
 
-        <div className="card p-6">
-          <p className="text-sm font-medium text-text-secondary">Payment plan</p>
-
-          <div className="mt-4 rounded-2xl border border-white/60 bg-white/35 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                  Total agreed
+          <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex min-w-0 items-start gap-4">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-violet-600 text-lg font-bold tracking-wide text-white shadow-[0_12px_30px_rgba(99,70,200,0.28)] ring-4 ring-white/50">
+                {initials || "P"}
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="truncate text-xl font-semibold tracking-tight text-text-primary">
+                    {partner.fullName}
+                  </h2>
+                  <StatusBadge status={partnerStatus} />
+                  {nombaLabel ? (
+                    <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-medium text-text-secondary ring-1 ring-white/70">
+                      {nombaLabel}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-1 text-sm text-text-secondary">
+                  {partner.phone}
+                  {partner.partnershipStartLabel
+                    ? ` · Starts ${partner.partnershipStartLabel}`
+                    : ""}
                 </p>
-                <p className="mt-1 text-2xl font-semibold tracking-tight text-text-primary">
-                  {formatMoney(partner.pledgeTotal ?? partner.monthlyCommitment)}
+                <p className="mt-2 text-sm text-text-secondary">
+                  {partner.planSummary ??
+                    `${formatMoney(installment)} every month`}
                 </p>
               </div>
-              {partner.pledgeComplete ? (
-                <StatusBadge status="paid" />
-              ) : (
-                <span className="rounded-full bg-primary-muted px-2.5 py-1 text-xs font-medium text-primary">
-                  {partner.progressPercent ?? 0}% paid
-                </span>
-              )}
             </div>
 
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/70">
-              <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{ width: `${Math.min(100, partner.progressPercent ?? 0)}%` }}
-              />
-            </div>
-
-            <p className="mt-3 text-sm leading-relaxed text-text-secondary">
-              {partner.planSummary ??
-                `${formatMoney(partner.monthlyCommitment)} every month`}
-            </p>
-          </div>
-
-          <div className="mt-4 divide-y divide-border">
-            <Row label="Phone" value={partner.phone} />
-            <Row
-              label="Each payment"
-              value={formatMoney(partner.installmentAmount ?? partner.monthlyCommitment)}
-            />
-            <Row
-              label="How often"
-              value={partner.frequencyShortLabel ?? "Monthly"}
-            />
-            <Row
-              label="Payments left to finish"
-              value={
-                partner.pledgeComplete
-                  ? "Completed"
-                  : formatMoney(partner.remainingPledge ?? 0)
-              }
-            />
-            <Row
-              label="Paid so far"
-              value={formatMoney(partner.paidTowardPledge ?? 0)}
-            />
-            <Row
-              label="Expected this month"
-              value={formatMoney(partner.expectedThisMonth ?? partner.monthlyCommitment)}
-            />
-            <Row
-              label="Starts paying from"
-              value={partner.partnershipStartLabel ?? "—"}
-            />
-            <Row
-              label="Behind on months"
-              value={
-                partner.arrears > 0 ? (
-                  <span className="font-semibold text-danger">{formatMoney(partner.arrears)}</span>
-                ) : (
-                  <span className="font-medium text-green-600">None</span>
-                )
-              }
-            />
-            <Row label="Extra credit" value={formatMoney(partner.creditBalance)} />
-            <Row label="Partnership status" value={<StatusBadge status={partnerStatus} />} />
-          </div>
-
-          {!isInactive ? (
-            <div className="mt-6 border-t border-border pt-4">
+            {!isInactive ? (
               <button
                 type="button"
                 onClick={() => setConfirmOpen(true)}
-                className="btn-secondary w-full border-red-200 text-red-700 hover:bg-red-50"
+                className="btn-secondary shrink-0 border-red-200 text-red-700 hover:bg-red-50"
               >
-                End partnership & expire VA
+                End partnership
               </button>
+            ) : null}
+          </div>
+
+          <div className="relative mt-5 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="rounded-2xl border border-white/70 bg-white/45 p-4 shadow-sm backdrop-blur-sm">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                  Dedicated account
+                </p>
+                <span className="rounded-full bg-primary-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                  Nomba VA
+                </span>
+              </div>
+              <p className="mt-2 font-mono text-2xl font-bold tracking-[0.08em] text-text-primary sm:text-3xl">
+                {partner.virtualAccountNumber ?? "—"}
+              </p>
+              <p className="mt-2 text-sm text-text-secondary">
+                {partner.bankName}
+                {partner.bankAccountName ? ` · ${partner.bankAccountName}` : ""}
+              </p>
+              <div
+                className={`mt-3 rounded-xl px-3 py-2 text-sm ${
+                  isInactive
+                    ? "bg-white/50 text-text-secondary"
+                    : "bg-primary-subtle/70 text-text-primary"
+                }`}
+              >
+                {isInactive ? (
+                  "Account expired — no longer accepting payments."
+                ) : (
+                  <>
+                    Pay{" "}
+                    <span className="font-semibold text-primary">
+                      {formatMoney(installment)}
+                    </span>{" "}
+                    {partner.frequencyLabel ?? "every month"} to this account.
+                  </>
+                )}
+              </div>
             </div>
+
+            <div className="rounded-2xl border border-white/70 bg-white/45 p-4 shadow-sm backdrop-blur-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                    Total agreed
+                  </p>
+                  <p className="mt-1 text-2xl font-semibold tracking-tight text-text-primary">
+                    {formatMoney(partner.pledgeTotal ?? partner.monthlyCommitment)}
+                  </p>
+                </div>
+                {partner.pledgeComplete ? (
+                  <StatusBadge status="paid" />
+                ) : (
+                  <span className="rounded-full bg-primary-muted px-2.5 py-1 text-xs font-medium text-primary">
+                    {progress}% paid
+                  </span>
+                )}
+              </div>
+              <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white/70">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-primary to-violet-500 transition-all"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <MiniStat
+                  label="Paid so far"
+                  value={formatMoney(partner.paidTowardPledge ?? 0)}
+                />
+                <MiniStat
+                  label="Left to finish"
+                  value={
+                    partner.pledgeComplete
+                      ? "Done"
+                      : formatMoney(partner.remainingPledge ?? 0)
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="relative mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            <MiniStat
+              label="Each payment"
+              value={formatMoney(installment)}
+            />
+            <MiniStat
+              label="How often"
+              value={partner.frequencyShortLabel ?? "Monthly"}
+            />
+            <MiniStat
+              label="Expected this month"
+              value={formatMoney(
+                partner.expectedThisMonth ?? partner.monthlyCommitment
+              )}
+            />
+            <MiniStat
+              label="Behind on months"
+              value={
+                partner.arrears > 0 ? (
+                  <span className="text-danger">{formatMoney(partner.arrears)}</span>
+                ) : (
+                  <span className="text-emerald-700">None</span>
+                )
+              }
+            />
+          </div>
+
+          {(partner.creditBalance ?? 0) > 0 ? (
+            <p className="relative mt-3 text-xs text-text-secondary">
+              Extra credit on file:{" "}
+              <span className="font-medium text-text-primary">
+                {formatMoney(partner.creditBalance)}
+              </span>
+            </p>
           ) : null}
         </div>
       </div>
@@ -341,7 +391,7 @@ export default function PartnerDetailPage({
   );
 }
 
-function Row({
+function MiniStat({
   label,
   value,
 }: {
@@ -349,9 +399,11 @@ function Row({
   value: React.ReactNode;
 }) {
   return (
-    <div className="flex justify-between gap-4 py-3 first:pt-0 last:pb-0">
-      <span className="text-text-secondary">{label}</span>
-      <span className="font-medium text-text-primary">{value}</span>
+    <div className="rounded-2xl border border-white/60 bg-white/35 px-3.5 py-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+        {label}
+      </p>
+      <p className="mt-1 text-sm font-semibold text-text-primary">{value}</p>
     </div>
   );
 }
