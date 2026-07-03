@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { OverpaymentCase, Partner, PartnerMonth, Payment } from "../models";
 import { koboToNaira } from "../services/ledger";
+import { fetchSubAccountBalance } from "../services/nombaClient";
 import { settleAllPendingRefunds } from "../services/refundSettlement";
 import { consolidateDuplicateOverpayments } from "../services/overpaymentConsolidation";
 
@@ -142,12 +143,28 @@ dashboardRouter.get("/summary", async (_req, res, next) => {
       include: [{ model: Partner }],
     });
 
+    let nombaWalletBalance: number | null = null;
+    let nombaWalletCurrency: string | null = null;
+    let nombaWalletError: string | null = null;
+    try {
+      const wallet = await fetchSubAccountBalance();
+      nombaWalletBalance = wallet.amountNaira;
+      nombaWalletCurrency = wallet.currency;
+    } catch (err) {
+      nombaWalletError =
+        err instanceof Error ? err.message : "Could not load Nomba balance";
+      console.error("[dashboard] Nomba wallet balance failed:", err);
+    }
+
     res.json({
       data: {
         totalPartners: partners.length,
         activePartners: partners.filter((p) => p.status === "active").length,
         totalPayments: payments.length,
         totalCollected: koboToNaira(totalCollectedKobo),
+        nombaWalletBalance,
+        nombaWalletCurrency,
+        nombaWalletError,
         collectedThisMonth: koboToNaira(collectedThisMonthKobo),
         expectedThisMonth: koboToNaira(expectedThisMonthKobo),
         collectionRate,

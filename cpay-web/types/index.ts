@@ -35,6 +35,10 @@ export type DashboardSummary = {
   activePartners: number;
   totalPayments: number;
   totalCollected: number;
+  /** Live money in the Nomba sub-account (VA collection wallet). */
+  nombaWalletBalance?: number | null;
+  nombaWalletCurrency?: string | null;
+  nombaWalletError?: string | null;
   collectedThisMonth: number;
   expectedThisMonth: number;
   collectionRate: number;

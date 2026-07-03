@@ -54,15 +54,38 @@ export default function DashboardPage() {
         <LiveBadge label="Live via Nomba webhooks" />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <StatCard
-          label="Total collected"
+          label="Nomba wallet (live)"
+          value={
+            summaryLoading
+              ? "…"
+              : summary?.nombaWalletBalance == null
+                ? "—"
+                : formatMoney(summary.nombaWalletBalance)
+          }
+          tone="info"
+          hint={
+            summaryLoading
+              ? undefined
+              : summary?.nombaWalletError
+                ? "Could not reach Nomba"
+                : "Exact money left in Nomba right now"
+          }
+          icon={
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3" />
+            </svg>
+          }
+        />
+        <StatCard
+          label="Total recorded"
           value={summaryLoading ? "…" : formatMoney(summary?.totalCollected ?? 0)}
           tone="success"
           hint={
             summaryLoading
               ? undefined
-              : `${summary?.totalPayments ?? 0} payment${summary?.totalPayments === 1 ? "" : "s"}`
+              : `${summary?.totalPayments ?? 0} payment${summary?.totalPayments === 1 ? "" : "s"} in CPay`
           }
           icon={
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -119,6 +142,12 @@ export default function DashboardPage() {
           }
         />
       </div>
+
+      {!summaryLoading && summary?.nombaWalletError ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Could not load Nomba live balance: {summary.nombaWalletError}
+        </div>
+      ) : null}
 
       <PageSection
         title="Collections overview"

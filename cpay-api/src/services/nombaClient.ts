@@ -269,6 +269,30 @@ export async function fetchSubAccountTransactions(
   );
 }
 
+/** GET /v1/accounts/{subAccountId}/balance — live money in the VA collection wallet */
+export async function fetchSubAccountBalance(): Promise<{
+  amountNaira: number;
+  currency: string;
+  timeCreated?: string | null;
+}> {
+  const json = await nombaRequest<{
+    amount?: string | number;
+    currency?: string;
+    timeCreated?: string;
+  }>(`/v1/accounts/${env.nomba.subAccountId}/balance`);
+
+  const amountNaira = Number(json.data?.amount ?? 0);
+  if (!Number.isFinite(amountNaira)) {
+    throw new Error("Nomba balance response was not a valid amount");
+  }
+
+  return {
+    amountNaira,
+    currency: json.data?.currency ?? "NGN",
+    timeCreated: json.data?.timeCreated ?? null,
+  };
+}
+
 /** PUT /v1/accounts/virtual/{identifier} — update callback URL, name, etc. */
 export async function updateVirtualAccount(
   identifier: string,
