@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { Partner, Payment, WebhookEvent } from "../models";
 import { applyPaymentToLedger, nairaToKobo } from "./ledger";
 import { applyPaymentSideEffects } from "./paymentEffects";
+import { findDuplicatePayment } from "./overpaymentConsolidation";
 import {
   matchKnownVirtualAccount,
   parseNombaWebhookPayload,
@@ -81,6 +82,19 @@ export async function handleNombaWebhook(
     });
     console.warn("[webhook] ignored empty payload");
     return { ok: true, message: "ignored empty webhook payload" };
+  }
+
+  const duplicatePayment = await findDuplicatePayment({
+    nombaTransactionId: fields.transactionId,
+    sessionId: fields.sessionId,
+    requestId: fields.requestId,
+  });
+  if (duplicatePayment) {
+    await WebhookEvent.create({
+      requestId: fields.requestId,
+      eventType: fields.eventType,
+    });
+    return { ok: true, message: "duplicate nomba payment ignored" };
   }
 
   const amountKobo = nairaToKobo(fields.amountNaira);

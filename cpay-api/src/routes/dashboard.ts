@@ -2,6 +2,7 @@ import { Router } from "express";
 import { OverpaymentCase, Partner, PartnerMonth, Payment } from "../models";
 import { koboToNaira } from "../services/ledger";
 import { settleAllPendingRefunds } from "../services/refundSettlement";
+import { consolidateDuplicateOverpayments } from "../services/overpaymentConsolidation";
 
 export const dashboardRouter = Router();
 
@@ -70,6 +71,12 @@ dashboardRouter.get("/summary", async (_req, res, next) => {
       await settleAllPendingRefunds();
     } catch (err) {
       console.error("[dashboard] refund settlement poll failed:", err);
+    }
+
+    try {
+      await consolidateDuplicateOverpayments();
+    } catch (err) {
+      console.error("[dashboard] overpayment consolidation failed:", err);
     }
 
     const partners = await Partner.findAll();

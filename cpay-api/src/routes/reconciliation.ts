@@ -9,6 +9,7 @@ import {
 } from "../services/nombaReconciliation";
 import { importMissingNombaPayments } from "../services/importNombaPayments";
 import { reprocessUnmatchedPayments } from "../services/reconciliation";
+import { consolidateDuplicateOverpayments } from "../services/overpaymentConsolidation";
 import {
   getTransferStatus,
   listBanks,
@@ -50,6 +51,18 @@ reconciliationRouter.post("/reprocess-unmatched", async (_req, res) => {
   } catch (err) {
     res.status(500).json({
       message: err instanceof Error ? err.message : "Reprocess failed",
+    });
+  }
+});
+
+/** Dismiss duplicate open overpayment cases (keeps one pending alert per member). */
+reconciliationRouter.post("/consolidate-overpayments", async (_req, res) => {
+  try {
+    const result = await consolidateDuplicateOverpayments();
+    res.json({ data: result });
+  } catch (err) {
+    res.status(500).json({
+      message: err instanceof Error ? err.message : "Consolidate failed",
     });
   }
 });

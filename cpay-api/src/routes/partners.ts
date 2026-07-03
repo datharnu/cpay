@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
+import { Op } from "sequelize";
 import { Partner, PartnerMonth, Payment, OverpaymentCase, PartnerNotification } from "../models";
 import { createVirtualAccount, fetchVirtualAccount } from "../services/nombaClient";
 import {
@@ -12,6 +13,7 @@ import {
   nairaToKobo,
 } from "../services/ledger";
 import { settleAllPendingRefunds, trySettleOverpaymentRefund } from "../services/refundSettlement";
+import { consolidateDuplicateOverpayments } from "../services/overpaymentConsolidation";
 
 export const partnersRouter = Router();
 
@@ -96,6 +98,8 @@ partnersRouter.get("/:id", async (req, res) => {
     }
   }
 
+  await consolidateDuplicateOverpayments();
+
   const summary = await getPartnerSummary(partner.id);
 
   let nombaVaStatus: { verified: boolean; expired?: boolean } | null = null;
@@ -141,9 +145,15 @@ partnersRouter.get("/:id", async (req, res) => {
       createdAt: (p as Payment & { createdAt?: Date }).createdAt ?? null,
     }));
 
-  const overpayments = (
-    (partner as Partner & { overpayments?: OverpaymentCase[] }).overpayments ?? []
-  )
+  const overpaymentRecords = await OverpaymentCase.findAll({
+    where: {
+      partnerId: partner.id,
+      status: { [Op.ne]: "dismissed" },
+    },
+    order: [["createdAt", "DESC"]],
+  });
+
+  const overpayments = overpaymentRecords
     .sort((a, b) =>
       sortByNewest(
         a as OverpaymentCase & { createdAt?: Date },

@@ -174,7 +174,7 @@ export class OverpaymentCase extends Model<
   declare paymentId: string;
   declare excessKobo: number;
   declare status: CreationOptional<
-    "pending_choice" | "credited" | "refund_pending" | "refunded"
+    "pending_choice" | "credited" | "refund_pending" | "refunded" | "dismissed"
   >;
   declare choice: CreationOptional<"credit_next_month" | "refund" | null>;
   declare merchantTxRef: CreationOptional<string | null>;

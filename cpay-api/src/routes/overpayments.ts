@@ -9,6 +9,7 @@ import {
 } from "../models";
 import { markPartnerNotificationsRead } from "../services/notifications";
 import { formatNaira, koboToNaira, applyOverpaymentToFutureMonths } from "../services/ledger";
+import { consolidateDuplicateOverpayments } from "../services/overpaymentConsolidation";
 import {
   getTransferStatus,
   lookupBankAccount,
@@ -43,6 +44,7 @@ function mapOverpaymentCase(c: OverpaymentCase) {
 
 overpaymentsRouter.get("/", async (_req, res) => {
   await settleAllPendingRefunds();
+  await consolidateDuplicateOverpayments();
 
   const cases = await OverpaymentCase.findAll({
     where: { status: "pending_choice" },

@@ -5,6 +5,7 @@ import {
   Payment,
 } from "../models";
 import { formatNaira } from "./ledger";
+import { shouldCreateOverpaymentCase } from "./overpaymentConsolidation";
 
 export async function applyPaymentSideEffects(
   partnerId: string,
@@ -17,6 +18,9 @@ export async function applyPaymentSideEffects(
   if (!partner || !payment) return;
 
   if (excessKobo > 0) {
+    const canCreate = await shouldCreateOverpaymentCase(partnerId, paymentId);
+    if (!canCreate) return;
+
     await OverpaymentCase.create({
       partnerId,
       paymentId,

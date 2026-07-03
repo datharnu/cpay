@@ -15,6 +15,7 @@ import { nombaWebhookHandler } from "./routes/webhooks";
 import { seedSandboxPartnersIfEmpty } from "./services/seedSandboxPartners";
 import { syncPartnerVirtualAccountWebhooks } from "./services/syncPartnerWebhooks";
 import { importMissingNombaPayments } from "./services/importNombaPayments";
+import { consolidateDuplicateOverpayments } from "./services/overpaymentConsolidation";
 
 async function main() {
   await configureSqlite();
@@ -41,6 +42,20 @@ async function main() {
         err instanceof Error ? err.message : err
       );
     }
+  }
+
+  try {
+    const consolidated = await consolidateDuplicateOverpayments();
+    if (consolidated.dismissed > 0) {
+      console.log(
+        `[boot] Dismissed ${consolidated.dismissed} duplicate overpayment case(s) across ${consolidated.partnersAffected} member(s).`
+      );
+    }
+  } catch (err) {
+    console.warn(
+      "[boot] Could not consolidate duplicate overpayments:",
+      err instanceof Error ? err.message : err
+    );
   }
 
   const app = express();
