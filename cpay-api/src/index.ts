@@ -2,7 +2,7 @@ import cors from "cors";
 import express from "express";
 import { corsOptions } from "./config/cors";
 import { env } from "./config/env";
-import { configureSqlite, sequelize } from "./db";
+import { configureDatabase, dbKind, isDurableDatabase, sequelize } from "./db";
 import "./models";
 import { dashboardRouter } from "./routes/dashboard";
 import { devRouter } from "./routes/dev";
@@ -20,9 +20,11 @@ import { backfillPartnerPledges } from "./services/pledge";
 import { Partner, Payment } from "./models";
 
 async function main() {
-  await configureSqlite();
+  await configureDatabase();
   await sequelize.sync();
-  console.log(`[boot] Database file: ${env.databaseUrl}`);
+  console.log(
+    `[boot] Database: ${dbKind} (${isDurableDatabase ? "durable" : "ephemeral"}) → ${env.databaseUrl}`
+  );
 
   try {
     const backfilled = await backfillPartnerPledges();
@@ -95,7 +97,9 @@ async function main() {
       res.json({
         status: "ok",
         app: "CPay API",
-        databaseUrl: env.databaseUrl,
+        databaseKind: dbKind,
+        databaseUrl: redactDatabaseUrl(env.databaseUrl),
+        durableStorage: isDurableDatabase,
         persistentDisk: env.databaseUrl.startsWith("/var/data"),
         partnerCount,
         paymentCount,
@@ -104,7 +108,9 @@ async function main() {
       res.status(500).json({
         status: "error",
         app: "CPay API",
-        databaseUrl: env.databaseUrl,
+        databaseKind: dbKind,
+        databaseUrl: redactDatabaseUrl(env.databaseUrl),
+        durableStorage: isDurableDatabase,
         message: err instanceof Error ? err.message : "Health check failed",
       });
     }
@@ -139,6 +145,19 @@ async function main() {
     console.log(`CPay API running on port ${env.port}`);
     console.log(`Webhook: ${publicWebhook}`);
   });
+}
+
+function redactDatabaseUrl(url: string): string {
+  if (url.startsWith("postgres://") || url.startsWith("postgresql://")) {
+    try {
+      const parsed = new URL(url);
+      if (parsed.password) parsed.password = "***";
+      return parsed.toString();
+    } catch {
+      return "postgresql://***";
+    }
+  }
+  return url;
 }
 
 main().catch((err) => {

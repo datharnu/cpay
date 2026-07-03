@@ -9,15 +9,13 @@ services:
     startCommand: npm start
     healthCheckPath: /health
     plan: free
-    disk:
-      name: cpay-data
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
+      # Free Neon Postgres connection string (durable storage on free Render).
+      # Example: postgresql://user:pass@ep-xxx.region.aws.neon.tech/neondb?sslmode=require
       - key: DATABASE_URL
-        value: /var/data/cpay.sqlite
+        sync: false
       - key: SEED_SANDBOX_PARTNERS
         value: "true"
       - key: SKIP_WEBHOOK_SIGNATURE

@@ -179,26 +179,42 @@ export async function getPledgeProgress(partner: Partner): Promise<{
   };
 }
 
-/** Ensure pledge columns exist on older SQLite databases. */
+/** Ensure pledge columns exist on older databases. */
 export async function ensurePledgeColumns(): Promise<void> {
-  const [rows] = await Partner.sequelize!.query("PRAGMA table_info(partners);");
-  const columns = new Set(
-    (rows as Array<{ name: string }>).map((row) => row.name)
-  );
+  const sequelize = Partner.sequelize!;
+  const dialect = sequelize.getDialect();
+
+  let columns = new Set<string>();
+  if (dialect === "sqlite") {
+    const [rows] = await sequelize.query("PRAGMA table_info(partners);");
+    columns = new Set((rows as Array<{ name: string }>).map((row) => row.name));
+  } else {
+    const [rows] = await sequelize.query(
+      `SELECT column_name AS name
+       FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'partners';`
+    );
+    columns = new Set(
+      (rows as Array<{ name: string }>).map((row) => row.name)
+    );
+  }
+
+  // Fresh Postgres installs already have columns from sequelize.sync().
+  if (columns.size === 0) return;
 
   if (!columns.has("pledgeTotalKobo")) {
-    await Partner.sequelize!.query(
-      "ALTER TABLE partners ADD COLUMN pledgeTotalKobo INTEGER NOT NULL DEFAULT 0;"
+    await sequelize.query(
+      "ALTER TABLE partners ADD COLUMN \"pledgeTotalKobo\" INTEGER NOT NULL DEFAULT 0;"
     );
   }
   if (!columns.has("commitmentFrequency")) {
-    await Partner.sequelize!.query(
-      "ALTER TABLE partners ADD COLUMN commitmentFrequency VARCHAR(32) NOT NULL DEFAULT 'monthly';"
+    await sequelize.query(
+      "ALTER TABLE partners ADD COLUMN \"commitmentFrequency\" VARCHAR(32) NOT NULL DEFAULT 'monthly';"
     );
   }
   if (!columns.has("installmentCount")) {
-    await Partner.sequelize!.query(
-      "ALTER TABLE partners ADD COLUMN installmentCount INTEGER NOT NULL DEFAULT 12;"
+    await sequelize.query(
+      "ALTER TABLE partners ADD COLUMN \"installmentCount\" INTEGER NOT NULL DEFAULT 12;"
     );
   }
 }
