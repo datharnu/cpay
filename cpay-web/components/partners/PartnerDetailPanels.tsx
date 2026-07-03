@@ -42,7 +42,7 @@ export function MonthlyLedgerPanel({ months }: { months: MonthRow[] }) {
     <PageSection
       flush
       title="Monthly ledger"
-      description="Commitment vs. payments per month — from their pledged start month, newest first."
+      description="What they should have covered each month vs what they paid — from their start month, newest first."
     >
       {months.length === 0 ? (
         <p className="px-5 py-8 text-text-secondary">No months tracked yet.</p>

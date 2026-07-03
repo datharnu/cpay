@@ -16,10 +16,23 @@ import { seedSandboxPartnersIfEmpty } from "./services/seedSandboxPartners";
 import { syncPartnerVirtualAccountWebhooks } from "./services/syncPartnerWebhooks";
 import { importMissingNombaPayments } from "./services/importNombaPayments";
 import { consolidateDuplicateOverpayments } from "./services/overpaymentConsolidation";
+import { backfillPartnerPledges } from "./services/pledge";
 
 async function main() {
   await configureSqlite();
   await sequelize.sync();
+
+  try {
+    const backfilled = await backfillPartnerPledges();
+    if (backfilled > 0) {
+      console.log(`[boot] Filled pledge plans for ${backfilled} existing member(s).`);
+    }
+  } catch (err) {
+    console.warn(
+      "[boot] Could not backfill partner pledges:",
+      err instanceof Error ? err.message : err
+    );
+  }
 
   let freshlySeeded = false;
   if (env.seedSandboxPartners) {

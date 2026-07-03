@@ -186,6 +186,14 @@ export async function fetchVirtualAccount(identifier: string) {
   );
 }
 
+/** DELETE /v1/accounts/virtual/{identifier} — expire a dedicated VA */
+export async function expireVirtualAccount(identifier: string) {
+  return nombaRequest<Record<string, unknown>>(
+    `/v1/accounts/virtual/${identifier}`,
+    { method: "DELETE" }
+  );
+}
+
 /** POST /v1/accounts/virtual/list */
 export async function listVirtualAccounts(filters?: {
   accountRef?: string;

@@ -3,7 +3,12 @@ import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { Op } from "sequelize";
 import { Partner, PartnerMonth, Payment, OverpaymentCase, PartnerNotification } from "../models";
-import { createVirtualAccount, fetchVirtualAccount } from "../services/nombaClient";
+import {
+  createVirtualAccount,
+  expireVirtualAccount,
+  fetchVirtualAccount,
+} from "../services/nombaClient";
+import { markPartnerNotificationsRead } from "../services/notifications";
 import {
   ensurePartnerMonths,
   formatNaira,
@@ -14,6 +19,12 @@ import {
 } from "../services/ledger";
 import { settleAllPendingRefunds, trySettleOverpaymentRefund } from "../services/refundSettlement";
 import { consolidateDuplicateOverpayments } from "../services/overpaymentConsolidation";
+import {
+  COMMITMENT_FREQUENCIES,
+  getPledgeProgress,
+  installmentAmountKobo,
+  isCommitmentFrequency,
+} from "../services/pledge";
 
 export const partnersRouter = Router();
 
@@ -30,7 +41,12 @@ const createPartnerSchema = z.object({
   fullName: z.string().min(2),
   phone: z.string().min(10),
   email: z.string().email().optional(),
-  monthlyCommitment: z.number().positive(),
+  /** Full amount the member agreed to give. */
+  pledgeTotal: z.number().positive(),
+  /** How often each installment is due. */
+  frequency: z.enum(COMMITMENT_FREQUENCIES),
+  /** How many installments make up the full pledge. */
+  installmentCount: z.number().int().min(1).max(520),
   /** HTML month input: "2026-07" */
   partnershipStartMonth: z
     .string()
@@ -45,12 +61,24 @@ partnersRouter.get("/", async (_req, res, next) => {
     for (const p of partners) {
       await ensurePartnerMonths(p);
       const summary = await getPartnerSummary(p.id);
+      const pledge = await getPledgeProgress(p);
       enriched.push({
         id: p.id,
         fullName: p.fullName,
         phone: p.phone,
         email: p.email,
-        monthlyCommitment: koboToNaira(p.monthlyCommitmentKobo),
+        monthlyCommitment: pledge.installmentAmount,
+        pledgeTotal: pledge.pledgeTotal,
+        frequency: pledge.frequency,
+        frequencyShortLabel: pledge.frequencyShortLabel,
+        installmentCount: pledge.installmentCount,
+        installmentAmount: pledge.installmentAmount,
+        planSummary: pledge.planSummary,
+        paidTowardPledge: pledge.paidTowardPledge,
+        remainingPledge: pledge.remainingPledge,
+        progressPercent: pledge.progressPercent,
+        pledgeComplete: pledge.pledgeComplete,
+        expectedThisMonth: pledge.expectedThisMonth,
         partnershipStartLabel: formatPartnershipStartLabel(p),
         virtualAccountNumber: p.virtualAccountNumber,
         bankName: p.bankName,
@@ -185,13 +213,27 @@ partnersRouter.get("/:id", async (req, res) => {
       createdAt: (n as PartnerNotification & { createdAt?: Date }).createdAt ?? null,
     }));
 
+  const pledge = await getPledgeProgress(partner);
+
   res.json({
     data: {
       id: partner.id,
       fullName: partner.fullName,
       phone: partner.phone,
       email: partner.email,
-      monthlyCommitment: koboToNaira(partner.monthlyCommitmentKobo),
+      monthlyCommitment: pledge.installmentAmount,
+      pledgeTotal: pledge.pledgeTotal,
+      frequency: pledge.frequency,
+      frequencyLabel: pledge.frequencyLabel,
+      frequencyShortLabel: pledge.frequencyShortLabel,
+      installmentCount: pledge.installmentCount,
+      installmentAmount: pledge.installmentAmount,
+      planSummary: pledge.planSummary,
+      paidTowardPledge: pledge.paidTowardPledge,
+      remainingPledge: pledge.remainingPledge,
+      progressPercent: pledge.progressPercent,
+      pledgeComplete: pledge.pledgeComplete,
+      expectedThisMonth: pledge.expectedThisMonth,
       partnershipStartYear: partner.partnershipStartYear,
       partnershipStartMonth: partner.partnershipStartMonth,
       partnershipStartLabel: formatPartnershipStartLabel(partner),
@@ -200,11 +242,102 @@ partnersRouter.get("/:id", async (req, res) => {
       bankAccountName: partner.bankAccountName,
       creditBalance: koboToNaira(partner.creditBalanceKobo ?? 0),
       arrears: summary ? koboToNaira(summary.arrearsKobo) : 0,
+      status: partner.status,
       nombaVaStatus,
       months,
       payments,
       overpayments,
       notifications,
+    },
+  });
+});
+
+/**
+ * Offboard a member: expire their Nomba VA so new transfers cannot land,
+ * mark partner inactive, and clear open overpayment action alerts.
+ */
+partnersRouter.post("/:id/deactivate", async (req, res) => {
+  const partner = await Partner.findByPk(req.params.id);
+  if (!partner) {
+    res.status(404).json({ message: "Partner not found" });
+    return;
+  }
+
+  if (partner.status === "inactive") {
+    res.json({
+      data: {
+        id: partner.id,
+        status: partner.status,
+        virtualAccountNumber: partner.virtualAccountNumber,
+        vaExpired: true,
+        message: "Partner is already inactive.",
+      },
+    });
+    return;
+  }
+
+  const openRefunds = await OverpaymentCase.count({
+    where: { partnerId: partner.id, status: "refund_pending" },
+  });
+  if (openRefunds > 0) {
+    res.status(400).json({
+      message:
+        "Settle or resolve pending refunds before deactivating this partner.",
+    });
+    return;
+  }
+
+  let vaExpired = false;
+  let vaMessage: string | null = null;
+
+  if (partner.virtualAccountNumber) {
+    try {
+      await expireVirtualAccount(partner.virtualAccountNumber);
+      vaExpired = true;
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : "Nomba expire failed";
+      // Treat already-expired VAs as success so offboarding can finish.
+      if (/expir|already|not found|404/i.test(detail)) {
+        vaExpired = true;
+        vaMessage = detail;
+      } else {
+        res.status(502).json({
+          message: `Could not expire Nomba virtual account: ${detail}`,
+        });
+        return;
+      }
+    }
+  } else {
+    vaExpired = true;
+    vaMessage = "No virtual account on file.";
+  }
+
+  partner.status = "inactive";
+  await partner.save();
+
+  const pendingCases = await OverpaymentCase.findAll({
+    where: { partnerId: partner.id, status: "pending_choice" },
+  });
+  for (const row of pendingCases) {
+    row.status = "dismissed";
+    row.resolvedAt = new Date();
+    await row.save();
+  }
+
+  await markPartnerNotificationsRead(partner.id, {
+    types: ["overpayment_pending"],
+  });
+
+  res.json({
+    data: {
+      id: partner.id,
+      status: partner.status,
+      virtualAccountNumber: partner.virtualAccountNumber,
+      vaExpired,
+      dismissedOverpayments: pendingCases.length,
+      message: vaMessage
+        ? `Partner deactivated. ${vaMessage}`
+        : "Partner deactivated and Nomba virtual account expired.",
     },
   });
 });
@@ -216,8 +349,25 @@ partnersRouter.post("/", async (req, res) => {
     return;
   }
 
-  const { fullName, phone, email, monthlyCommitment, partnershipStartMonth } =
-    parsed.data;
+  const {
+    fullName,
+    phone,
+    email,
+    pledgeTotal,
+    frequency,
+    installmentCount,
+    partnershipStartMonth,
+  } = parsed.data;
+
+  if (!isCommitmentFrequency(frequency)) {
+    res.status(400).json({ message: "Pick a valid payment schedule." });
+    return;
+  }
+
+  const count =
+    frequency === "one_off" ? 1 : Math.max(1, Math.floor(installmentCount));
+  const pledgeTotalKobo = nairaToKobo(pledgeTotal);
+  const installmentKobo = installmentAmountKobo(pledgeTotalKobo, count);
   const [startYear, startMonth] = partnershipStartMonth.split("-").map(Number);
   const accountRef = `cpay_${uuidv4().replace(/-/g, "").slice(0, 24)}`;
 
@@ -225,7 +375,10 @@ partnersRouter.post("/", async (req, res) => {
     fullName,
     phone,
     email: email ?? null,
-    monthlyCommitmentKobo: nairaToKobo(monthlyCommitment),
+    monthlyCommitmentKobo: installmentKobo,
+    pledgeTotalKobo,
+    commitmentFrequency: frequency,
+    installmentCount: count,
     partnershipStartYear: startYear,
     partnershipStartMonth: startMonth,
     accountRef,
@@ -255,16 +408,22 @@ partnersRouter.post("/", async (req, res) => {
   }
 
   await ensurePartnerMonths(partner);
+  const pledge = await getPledgeProgress(partner);
 
   res.status(201).json({
     data: {
       id: partner.id,
       fullName: partner.fullName,
-      monthlyCommitment,
+      monthlyCommitment: pledge.installmentAmount,
+      pledgeTotal: pledge.pledgeTotal,
+      frequency: pledge.frequency,
+      installmentCount: pledge.installmentCount,
+      installmentAmount: pledge.installmentAmount,
+      planSummary: pledge.planSummary,
       virtualAccountNumber: partner.virtualAccountNumber,
       bankName: partner.bankName,
       bankAccountName: partner.bankAccountName,
-      message: `Dedicated account ready. Pay ${formatNaira(partner.monthlyCommitmentKobo)} monthly to ${partner.virtualAccountNumber}`,
+      message: `Dedicated account ready. Plan: ${pledge.planSummary}. Pay to ${partner.virtualAccountNumber}`,
     },
   });
 });

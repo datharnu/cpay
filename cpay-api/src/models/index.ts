@@ -15,7 +15,16 @@ export class Partner extends Model<
   declare fullName: string;
   declare phone: string;
   declare email: CreationOptional<string | null>;
+  /** Amount due each installment (derived from total pledge ÷ number of payments). */
   declare monthlyCommitmentKobo: number;
+  /** Full amount the member agreed to give. */
+  declare pledgeTotalKobo: CreationOptional<number>;
+  /** How often each installment is due. */
+  declare commitmentFrequency: CreationOptional<
+    "weekly" | "biweekly" | "monthly" | "bimonthly" | "semiannual" | "one_off"
+  >;
+  /** How many installments make up the full pledge. */
+  declare installmentCount: CreationOptional<number>;
   declare accountRef: string;
   declare virtualAccountNumber: CreationOptional<string | null>;
   declare bankName: CreationOptional<string | null>;
@@ -39,6 +48,21 @@ Partner.init(
     phone: { type: DataTypes.STRING, allowNull: false },
     email: { type: DataTypes.STRING, allowNull: true },
     monthlyCommitmentKobo: { type: DataTypes.INTEGER, allowNull: false },
+    pledgeTotalKobo: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
+    commitmentFrequency: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: "monthly",
+    },
+    installmentCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 12,
+    },
     accountRef: { type: DataTypes.STRING, allowNull: false, unique: true },
     virtualAccountNumber: { type: DataTypes.STRING, allowNull: true },
     bankName: { type: DataTypes.STRING, allowNull: true },

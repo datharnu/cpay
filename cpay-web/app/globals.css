@@ -65,6 +65,25 @@
   animation: notification-backdrop-enter 0.15s ease-out forwards;
 }
 
+@keyframes modal-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-backdrop-enter {
+  animation: notification-backdrop-enter 0.2s ease-out forwards;
+}
+
+.modal-enter {
+  animation: modal-enter 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
 .toast-enter {
   animation: toast-enter 0.28s ease-out forwards;
 }

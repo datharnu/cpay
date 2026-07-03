@@ -1,14 +1,16 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AppShell } from "@/components/shared/AppShell";
+import { AppShell, formatMoney } from "@/components/shared/AppShell";
 import { useToast } from "@/components/shared/Toast";
 import { PageSection } from "@/components/shared/ui";
 import {
   createPartnerSchema,
   defaultPartnershipStartMonth,
+  FREQUENCY_OPTIONS,
+  planHelperText,
   type CreatePartnerInput,
 } from "@/app/utils/SchemaData";
 import { useCreatePartner } from "@/hooks/useCpay";
@@ -32,6 +34,8 @@ export default function NewPartnerPage() {
   const {
     register,
     handleSubmit,
+    control,
+    setValue,
     formState: { errors },
   } = useForm<CreatePartnerInput>({
     resolver: zodResolver(createPartnerSchema),
@@ -39,14 +43,32 @@ export default function NewPartnerPage() {
       fullName: "",
       phone: "",
       email: "",
-      monthlyCommitment: 50,
+      pledgeTotal: 600,
+      frequency: "monthly",
+      installmentCount: 12,
       partnershipStartMonth: defaultPartnershipStartMonth(),
     },
   });
 
+  const pledgeTotal = useWatch({ control, name: "pledgeTotal" });
+  const frequency = useWatch({ control, name: "frequency" });
+  const installmentCount = useWatch({ control, name: "installmentCount" });
+
+  const planText = planHelperText({
+    pledgeTotal: Number(pledgeTotal) || 0,
+    frequency: frequency ?? "monthly",
+    installmentCount:
+      frequency === "one_off" ? 1 : Math.max(1, Number(installmentCount) || 1),
+  });
+
   const onSubmit = handleSubmit(async (values) => {
     try {
-      const result = await createPartner.mutateAsync(values);
+      const payload = {
+        ...values,
+        installmentCount:
+          values.frequency === "one_off" ? 1 : values.installmentCount,
+      };
+      const result = await createPartner.mutateAsync(payload);
       router.push(`/partners/${result.id}`);
     } catch (error) {
       const message = getErrorMessage(error);
@@ -64,7 +86,7 @@ export default function NewPartnerPage() {
       <div className="mx-auto flex w-full max-w-3xl flex-col justify-center py-6 lg:min-h-[calc(100dvh-11rem)]">
         <PageSection
           title="Member details"
-          description="Creates a real Nomba virtual account via API. Sandbox allows max 2 accounts; inbound transfers are capped at ₦150."
+          description="Set the full amount they agreed to give, how often they will pay, and how many payments. CPay creates a dedicated Nomba account for them."
         >
           <form onSubmit={onSubmit} className="space-y-8">
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -120,28 +142,116 @@ export default function NewPartnerPage() {
                   type="month"
                   className="input-field py-3.5 px-4 text-base"
                 />
-                <p className="mt-1.5 text-sm text-text-muted">
-                  First month they pledged to pay — can be later than when you register them.
-                </p>
                 {errors.partnershipStartMonth && (
                   <p className="mt-1.5 text-sm text-danger">
                     {errors.partnershipStartMonth.message}
                   </p>
                 )}
               </div>
+            </div>
 
-              <div>
-                <label className="mb-2 block text-base font-medium text-text-primary">
-                  Monthly commitment (₦)
-                </label>
-                <input
-                  {...register("monthlyCommitment", { valueAsNumber: true })}
-                  type="number"
-                  className="input-field py-3.5 px-4 text-base"
-                />
-                {errors.monthlyCommitment && (
-                  <p className="mt-1.5 text-sm text-danger">
-                    {errors.monthlyCommitment.message}
+            <div className="rounded-2xl border border-white/70 bg-white/40 p-5 shadow-sm">
+              <p className="text-sm font-semibold text-text-primary">Payment plan</p>
+              <p className="mt-1 text-sm text-text-secondary">
+                Example: ₦600,000 total, paid every month for 12 months.
+              </p>
+
+              <div className="mt-5 grid grid-cols-1 gap-6 sm:grid-cols-3">
+                <div className="sm:col-span-1">
+                  <label className="mb-2 block text-base font-medium text-text-primary">
+                    Total amount (₦)
+                  </label>
+                  <input
+                    {...register("pledgeTotal", { valueAsNumber: true })}
+                    type="number"
+                    min={1}
+                    className="input-field py-3.5 px-4 text-base"
+                    placeholder="600000"
+                  />
+                  {errors.pledgeTotal && (
+                    <p className="mt-1.5 text-sm text-danger">
+                      {errors.pledgeTotal.message}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-base font-medium text-text-primary">
+                    How often
+                  </label>
+                  <select
+                    {...register("frequency", {
+                      onChange: (event) => {
+                        if (event.target.value === "one_off") {
+                          setValue("installmentCount", 1);
+                        }
+                      },
+                    })}
+                    className="input-field py-3.5 px-4 text-base"
+                  >
+                    {FREQUENCY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.frequency && (
+                    <p className="mt-1.5 text-sm text-danger">
+                      {errors.frequency.message}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-base font-medium text-text-primary">
+                    Number of payments
+                  </label>
+                  <input
+                    {...register("installmentCount", { valueAsNumber: true })}
+                    type="number"
+                    min={1}
+                    disabled={frequency === "one_off"}
+                    className="input-field py-3.5 px-4 text-base disabled:opacity-60"
+                  />
+                  {errors.installmentCount && (
+                    <p className="mt-1.5 text-sm text-danger">
+                      {errors.installmentCount.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-primary/15 bg-primary-subtle/50 px-4 py-3 text-sm text-text-primary">
+                <p className="font-medium text-primary">Plan summary</p>
+                <p className="mt-1 leading-relaxed">{planText}</p>
+                {Number(pledgeTotal) > 0 && (
+                  <p className="mt-2 text-xs text-text-secondary">
+                    Expected this month (approx.):{" "}
+                    {formatMoney(
+                      frequency === "weekly"
+                        ? (Number(pledgeTotal) /
+                            Math.max(1, Number(installmentCount) || 1)) *
+                          4
+                        : frequency === "biweekly"
+                          ? (Number(pledgeTotal) /
+                              Math.max(1, Number(installmentCount) || 1)) *
+                            2
+                          : frequency === "bimonthly"
+                            ? Number(pledgeTotal) /
+                              Math.max(1, Number(installmentCount) || 1) /
+                              2
+                            : frequency === "semiannual"
+                              ? Number(pledgeTotal) /
+                                Math.max(1, Number(installmentCount) || 1) /
+                                6
+                              : Number(pledgeTotal) /
+                                Math.max(
+                                  1,
+                                  frequency === "one_off"
+                                    ? 1
+                                    : Number(installmentCount) || 1
+                                )
+                    )}
                   </p>
                 )}
               </div>

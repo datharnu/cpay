@@ -162,7 +162,7 @@ export function AppShell({
   );
 }
 
-export function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status }: { status?: string | null }) {
   const styles: Record<string, string> = {
     paid: "bg-emerald-500/15 text-emerald-800",
     partial: "bg-amber-500/15 text-amber-800",
@@ -178,13 +178,17 @@ export function StatusBadge({ status }: { status: string }) {
     refunded: "bg-white/50 text-text-secondary",
     underpayment: "bg-amber-500/15 text-amber-800",
     overpayment_pending: "bg-primary-muted text-primary",
+    active: "bg-emerald-500/15 text-emerald-800",
+    inactive: "bg-white/50 text-text-secondary",
   };
+
+  const resolved = status?.trim() || "pending";
 
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium capitalize backdrop-blur-sm ${styles[status] ?? styles.pending}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium capitalize backdrop-blur-sm ${styles[resolved] ?? styles.pending}`}
     >
-      {status.replace(/_/g, " ")}
+      {resolved.replace(/_/g, " ")}
     </span>
   );
 }

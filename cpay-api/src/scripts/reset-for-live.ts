@@ -29,9 +29,15 @@ async function main() {
   for (const p of partners) {
     if (p.virtualAccountNumber === "6087240289") {
       p.monthlyCommitmentKobo = nairaToKobo(50);
+      p.pledgeTotalKobo = nairaToKobo(600);
+      p.commitmentFrequency = "monthly";
+      p.installmentCount = 12;
       p.fullName = "Sister Grace Adeyemi";
     } else if (p.virtualAccountNumber === "5903473362") {
       p.monthlyCommitmentKobo = nairaToKobo(100);
+      p.pledgeTotalKobo = nairaToKobo(1200);
+      p.commitmentFrequency = "monthly";
+      p.installmentCount = 12;
       p.fullName = "Brother Ade Okafor";
     }
     p.joinedAt = trackingStart;

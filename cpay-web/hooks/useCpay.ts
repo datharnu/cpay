@@ -77,6 +77,33 @@ export function useCreatePartner() {
   });
 }
 
+export function useDeactivatePartner() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.post<{
+        data: {
+          id: string;
+          status: string;
+          virtualAccountNumber?: string | null;
+          vaExpired: boolean;
+          dismissedOverpayments?: number;
+          message: string;
+        };
+      }>(`/api/partners/${id}/deactivate`);
+      return data.data;
+    },
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ["partners", id] });
+      queryClient.invalidateQueries({ queryKey: ["partners"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["overpayments"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+}
+
 export function useReconcileNomba() {
   const queryClient = useQueryClient();
   return useMutation({

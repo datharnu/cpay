@@ -32,7 +32,7 @@ export function PartnersTable({ partners }: { partners: PartnerDisplayItem[] }) 
             <th>Name</th>
             <th>Source</th>
             <th>Dedicated account</th>
-            <th>Monthly</th>
+            <th>Payment plan</th>
             <th>Outstanding</th>
             <th>Status</th>
             <th className="text-right">Action</th>
@@ -92,7 +92,19 @@ export function PartnersTable({ partners }: { partners: PartnerDisplayItem[] }) 
                   </span>
                 </td>
                 <td className="text-text-secondary">
-                  {formatMoney(partner.monthlyCommitment)}
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-medium text-text-primary">
+                      {formatMoney(
+                        partner.installmentAmount ?? partner.monthlyCommitment
+                      )}
+                    </span>
+                    <span className="text-xs text-text-muted">
+                      {partner.frequencyShortLabel ?? "Monthly"}
+                      {partner.pledgeTotal
+                        ? ` · ${formatMoney(partner.pledgeTotal)} total`
+                        : ""}
+                    </span>
+                  </div>
                 </td>
                 <td>
                   {partner.arrears > 0 ? (
@@ -104,7 +116,9 @@ export function PartnersTable({ partners }: { partners: PartnerDisplayItem[] }) 
                   )}
                 </td>
                 <td>
-                  {partner.monthsMissed > 0 ? (
+                  {partner.status === "inactive" ? (
+                    <StatusBadge status="inactive" />
+                  ) : partner.monthsMissed > 0 ? (
                     <StatusBadge status="missed" />
                   ) : partner.arrears > 0 ? (
                     <StatusBadge status="partial" />

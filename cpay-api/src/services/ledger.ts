@@ -1,5 +1,6 @@
 import { Op } from "sequelize";
 import { Partner, PartnerMonth, Payment } from "../models";
+import { ledgerMonthExpectedKobo } from "./pledge";
 
 export function nairaToKobo(naira: number): number {
   return Math.round(naira * 100);
@@ -45,6 +46,7 @@ export async function ensurePartnerMonths(partner: Partner): Promise<void> {
   const now = new Date();
   const end = new Date(now.getFullYear(), now.getMonth(), 1);
   const trackingStart = getPartnershipStart(partner);
+  const expectedKobo = await ledgerMonthExpectedKobo(partner);
 
   const sy = trackingStart.getFullYear();
   const sm = trackingStart.getMonth() + 1;
@@ -63,17 +65,21 @@ export async function ensurePartnerMonths(partner: Partner): Promise<void> {
   if (cursor > end) {
     const year = cursor.getFullYear();
     const month = cursor.getMonth() + 1;
-    await PartnerMonth.findOrCreate({
+    const [row] = await PartnerMonth.findOrCreate({
       where: { partnerId: partner.id, year, month },
       defaults: {
         partnerId: partner.id,
         year,
         month,
-        expectedKobo: partner.monthlyCommitmentKobo,
+        expectedKobo,
         paidKobo: 0,
         status: "pending",
       },
     });
+    if (row.expectedKobo !== expectedKobo) {
+      row.expectedKobo = expectedKobo;
+      await row.save();
+    }
     await refreshMissedMonths(partner.id);
     return;
   }
@@ -88,14 +94,14 @@ export async function ensurePartnerMonths(partner: Partner): Promise<void> {
         partnerId: partner.id,
         year,
         month,
-        expectedKobo: partner.monthlyCommitmentKobo,
+        expectedKobo,
         paidKobo: 0,
         status: "pending",
       },
     });
 
-    if (row.expectedKobo !== partner.monthlyCommitmentKobo) {
-      row.expectedKobo = partner.monthlyCommitmentKobo;
+    if (row.expectedKobo !== expectedKobo) {
+      row.expectedKobo = expectedKobo;
       await row.save();
     }
 
@@ -117,6 +123,7 @@ async function ensureEarliestUnpaidPartnershipMonth(
   partner: Partner
 ): Promise<PartnerMonth> {
   let cursor = getPartnershipStart(partner);
+  const expectedKobo = await ledgerMonthExpectedKobo(partner);
 
   while (true) {
     const year = cursor.getFullYear();
@@ -128,18 +135,18 @@ async function ensureEarliestUnpaidPartnershipMonth(
         partnerId: partner.id,
         year,
         month,
-        expectedKobo: partner.monthlyCommitmentKobo,
+        expectedKobo,
         paidKobo: 0,
         status: "pending",
       },
     });
 
-    if (row.expectedKobo !== partner.monthlyCommitmentKobo) {
-      row.expectedKobo = partner.monthlyCommitmentKobo;
+    if (row.expectedKobo !== expectedKobo) {
+      row.expectedKobo = expectedKobo;
       await row.save();
     }
 
-    if (row.paidKobo < row.expectedKobo) return row;
+    if (expectedKobo <= 0 || row.paidKobo < row.expectedKobo) return row;
 
     cursor = new Date(year, month, 1);
   }
