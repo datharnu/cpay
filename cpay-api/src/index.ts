@@ -17,10 +17,12 @@ import { syncPartnerVirtualAccountWebhooks } from "./services/syncPartnerWebhook
 import { importMissingNombaPayments } from "./services/importNombaPayments";
 import { consolidateDuplicateOverpayments } from "./services/overpaymentConsolidation";
 import { backfillPartnerPledges } from "./services/pledge";
+import { Partner, Payment } from "./models";
 
 async function main() {
   await configureSqlite();
   await sequelize.sync();
+  console.log(`[boot] Database file: ${env.databaseUrl}`);
 
   try {
     const backfilled = await backfillPartnerPledges();
@@ -84,8 +86,28 @@ async function main() {
 
   app.use(express.json());
 
-  app.get("/health", (_req, res) => {
-    res.json({ status: "ok", app: "CPay API" });
+  app.get("/health", async (_req, res) => {
+    try {
+      const [partnerCount, paymentCount] = await Promise.all([
+        Partner.count(),
+        Payment.count(),
+      ]);
+      res.json({
+        status: "ok",
+        app: "CPay API",
+        databaseUrl: env.databaseUrl,
+        persistentDisk: env.databaseUrl.startsWith("/var/data"),
+        partnerCount,
+        paymentCount,
+      });
+    } catch (err) {
+      res.status(500).json({
+        status: "error",
+        app: "CPay API",
+        databaseUrl: env.databaseUrl,
+        message: err instanceof Error ? err.message : "Health check failed",
+      });
+    }
   });
 
   app.use("/api/partners", partnersRouter);
