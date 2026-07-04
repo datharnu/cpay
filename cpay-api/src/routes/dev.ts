@@ -61,8 +61,14 @@ devRouter.post("/seed-demo", localOnly, async (_req, res) => {
 
 /** Demo step 4 — Grace pays catch-up (local dev only) */
 devRouter.post("/demo-catch-up/:partnerId", localOnly, async (req, res) => {
+  const partnerId = req.params.partnerId;
+  if (typeof partnerId !== "string") {
+    res.status(400).json({ message: "Invalid partner id" });
+    return;
+  }
+
   try {
-    const result = await applyDemoCatchUp(req.params.partnerId);
+    const result = await applyDemoCatchUp(partnerId);
     res.json({ data: result });
   } catch (err) {
     res.status(500).json({
