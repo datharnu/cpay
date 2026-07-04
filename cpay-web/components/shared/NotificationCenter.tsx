@@ -417,7 +417,7 @@ export function NotificationCenter() {
 
         <div className="shrink-0 border-t border-white/60 bg-white/50 px-4 py-2.5">
           <Link
-            href="/"
+            href="/dashboard"
             onClick={() => setOpen(false)}
             className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
           >

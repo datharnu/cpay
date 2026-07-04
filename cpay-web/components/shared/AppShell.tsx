@@ -8,7 +8,7 @@ import { LiveFinanceToasts } from "@/hooks/useLiveFinanceToasts";
 const navItems = [
   {
     name: "Dashboard",
-    href: "/",
+    href: "/dashboard",
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
@@ -45,7 +45,7 @@ const navItems = [
 ];
 
 function isNavActive(pathname: string, href: string): boolean {
-  if (href === "/") return pathname === "/";
+  if (href === "/dashboard") return pathname === "/dashboard";
   if (href === "/partners") {
     return (
       pathname === "/partners" ||
@@ -119,7 +119,7 @@ export function AppShell({
           <div className="shrink-0 border-t border-white/35 p-4">
             <div className="liquid-glass liquid-glass-card p-3">
               <p className="text-xs font-medium text-text-secondary">Powered by</p>
-              <p className="mt-0.5 text-sm font-semibold text-text-primary">Nomba sandbox</p>
+              <p className="mt-0.5 text-sm font-semibold text-text-primary">Nomba Virtual Accounts</p>
               <p className="mt-1 text-xs text-text-muted">Live webhook reconciliation</p>
             </div>
           </div>
@@ -128,16 +128,16 @@ export function AppShell({
         {/* Main column — header fixed, content scrolls internally */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <header className="shrink-0 border-b border-white/35 liquid-glass liquid-glass-subtle">
-            <div className="flex h-[4.25rem] items-center justify-between gap-4 px-4 sm:px-6">
-              <h1 className="min-w-0 truncate text-xl font-bold leading-tight text-text-primary sm:text-[26px]">
+            <div className="flex h-[4.25rem] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+              <h1 className="min-w-0 truncate text-xl font-bold leading-tight text-text-primary sm:text-[26px] lg:text-[28px]">
                 {title ?? "CPay"}
               </h1>
 
               <div className="flex shrink-0 items-center gap-2">
                 <NotificationCenter />
                 <div className="flex items-center gap-2 lg:hidden">
-                  <Link href="/" className="btn-ghost">
-                    Home
+                  <Link href="/dashboard" className="btn-ghost">
+                    Dashboard
                   </Link>
                   <Link href="/partners" className="btn-ghost">
                     Members
@@ -153,8 +153,10 @@ export function AppShell({
             </div>
           </header>
 
-          <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
-            <div className="mx-auto max-w-5xl space-y-5">{children}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+            <div className="mx-auto w-full max-w-none space-y-6 lg:space-y-8">
+              {children}
+            </div>
           </div>
         </div>
       </div>

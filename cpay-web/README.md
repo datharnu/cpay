@@ -1,36 +1,32 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CPay Web
 
-## Getting Started
+Next.js finance dashboard for [CPay](../README.md) — church partnership collections via Nomba virtual accounts.
 
-First, run the development server:
+## Run locally
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000 for the judge briefing, then **Open finance dashboard** for the live demo.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Optional: point the web app at a remote API:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+NEXT_PUBLIC_API_URL=https://cpay-api-j4j1.onrender.com npm run dev
+```
 
-## Learn More
+## What you can demo
 
-To learn more about Next.js, take a look at the following resources:
+- **Dashboard** — live Nomba wallet balance, collections chart, recent webhook payments
+- **Partnership members** — each member's dedicated NUBAN and monthly ledger
+- **Add partner** — provisions a real Nomba virtual account
+- **Overpayments** — notification + toast when excess is paid; resolve on member profile (credit or Nomba refund)
+- **Payment history** — all reconciled transfers + CSV export
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Judge demo
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Full setup (Nomba credentials, webhooks, live bank transfer test): see the root [README](../README.md).
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Deployed API health: https://cpay-api-j4j1.onrender.com/health

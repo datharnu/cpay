@@ -72,6 +72,18 @@ export default function PartnerDetailPage({
     (item) => item.status === "refund_pending"
   );
 
+  async function handleCopyAccount() {
+    const account = partner?.virtualAccountNumber;
+    if (!account) return;
+
+    try {
+      await navigator.clipboard.writeText(account);
+      success("Account number copied — paste in your bank app to pay.");
+    } catch {
+      toastError("Could not copy. Select the number and copy manually.");
+    }
+  }
+
   async function handleDeactivate() {
     try {
       const result = await deactivate.mutateAsync(id);
@@ -209,6 +221,7 @@ export default function PartnerDetailPage({
 
   return (
     <AppShell title={partner.fullName}>
+      <div className="space-y-6 lg:space-y-8">
       {isInactive ? (
         <div className="rounded-2xl border border-white/60 bg-white/40 px-4 py-3 text-sm text-text-secondary">
           This member left the partnership program. Their Nomba virtual account
@@ -218,7 +231,7 @@ export default function PartnerDetailPage({
       ) : null}
 
       <div className="card overflow-hidden">
-        <div className="relative px-5 py-5 sm:px-6 sm:py-6">
+        <div className="relative px-5 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
           <div className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-primary/10 blur-2xl" />
           <div className="pointer-events-none absolute -bottom-16 left-10 h-32 w-32 rounded-full bg-violet-400/10 blur-2xl" />
 
@@ -263,7 +276,7 @@ export default function PartnerDetailPage({
             ) : null}
           </div>
 
-          <div className="relative mt-5 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="relative mt-5 grid gap-3 lg:grid-cols-[1.35fr_0.85fr] xl:grid-cols-[1.4fr_0.8fr]">
             <div className="rounded-2xl border border-white/70 bg-white/45 p-4 shadow-sm backdrop-blur-sm">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
@@ -273,9 +286,20 @@ export default function PartnerDetailPage({
                   Nomba VA
                 </span>
               </div>
-              <p className="mt-2 font-mono text-2xl font-bold tracking-[0.08em] text-text-primary sm:text-3xl">
-                {partner.virtualAccountNumber ?? "—"}
-              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <p className="font-mono text-2xl font-bold tracking-[0.08em] text-text-primary sm:text-3xl">
+                  {partner.virtualAccountNumber ?? "—"}
+                </p>
+                {partner.virtualAccountNumber && !isInactive ? (
+                  <button
+                    type="button"
+                    onClick={handleCopyAccount}
+                    className="btn-secondary shrink-0 px-3 py-1.5 text-xs font-semibold"
+                  >
+                    Copy number
+                  </button>
+                ) : null}
+              </div>
               <p className="mt-2 text-sm text-text-secondary">
                 {partner.bankName}
                 {partner.bankAccountName ? ` · ${partner.bankAccountName}` : ""}
@@ -342,7 +366,7 @@ export default function PartnerDetailPage({
             </div>
           </div>
 
-          <div className="relative mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="relative mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
             <MiniStat
               label="Each payment"
               value={formatMoney(installment)}
@@ -384,9 +408,14 @@ export default function PartnerDetailPage({
 
       <MonthlyLedgerPanel months={partner.months} />
 
-      <PaymentHistoryPanel payments={partner.payments} />
+      <PaymentHistoryPanel
+        payments={partner.payments}
+        partnerId={partner.id}
+        partnerName={partner.fullName}
+      />
 
       {modal}
+      </div>
     </AppShell>
   );
 }
@@ -399,7 +428,7 @@ function MiniStat({
   value: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-white/60 bg-white/35 px-3.5 py-3">
+    <div className="rounded-2xl border border-white/60 bg-white/35 px-3.5 py-3 lg:px-4 lg:py-3.5">
       <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
         {label}
       </p>

@@ -20,7 +20,7 @@ function getErrorMessage(error: unknown) {
   if (axios.isAxiosError(error)) {
     return (
       (error.response?.data as { message?: string })?.message ??
-      "Could not create partner. Sandbox allows max 2 virtual accounts."
+      "Could not create partner. Check your Nomba credentials and virtual account limit."
     );
   }
   return "Could not create partner.";
@@ -72,8 +72,10 @@ export default function NewPartnerPage() {
       router.push(`/partners/${result.id}`);
     } catch (error) {
       const message = getErrorMessage(error);
-      const isSandboxLimit = message.toLowerCase().includes("sandbox limit");
-      if (isSandboxLimit) {
+      const isVaLimit = /sandbox limit|virtual account limit|max.*virtual/i.test(
+        message
+      );
+      if (isVaLimit) {
         warning(message, 8000);
       } else {
         warning(message);
@@ -83,7 +85,7 @@ export default function NewPartnerPage() {
 
   return (
     <AppShell title="Add partnership member">
-      <div className="mx-auto flex w-full max-w-3xl flex-col justify-center py-6 lg:min-h-[calc(100dvh-11rem)]">
+      <div className="mx-auto flex w-full max-w-4xl flex-col justify-center py-4 xl:max-w-5xl 2xl:max-w-6xl lg:min-h-[calc(100dvh-11rem)]">
         <PageSection
           title="Member details"
           description="Set the full amount they agreed to give, how often they will pay, and how many payments. CPay creates a dedicated Nomba account for them."

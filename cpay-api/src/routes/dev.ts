@@ -1,8 +1,17 @@
-import { Router } from "express";
+import { Router, RequestHandler } from "express";
 import { applyDemoCatchUp, seedDemoStory } from "../services/demoSeed";
 import { resetCleanDemo } from "../services/resetCleanDemo";
 
 export const devRouter = Router();
+
+/** Demo seed routes are local-only — never exposed on the deployed judge demo. */
+const localOnly: RequestHandler = (_req, res, next) => {
+  if (process.env.NODE_ENV === "production") {
+    res.status(404).end();
+    return;
+  }
+  next();
+};
 
 function isResetAuthorized(req: { header(name: string): string | undefined }): boolean {
   const provided = req.header("x-cpay-reset-secret");
@@ -38,8 +47,8 @@ devRouter.post("/reset-clean", async (req, res) => {
 });
 
 
-/** Load full hackathon demo story (uses your 2 existing sandbox VAs) */
-devRouter.post("/seed-demo", async (_req, res) => {
+/** Load full hackathon demo story (local dev only) */
+devRouter.post("/seed-demo", localOnly, async (_req, res) => {
   try {
     const result = await seedDemoStory();
     res.json({ data: result });
@@ -50,8 +59,8 @@ devRouter.post("/seed-demo", async (_req, res) => {
   }
 });
 
-/** Demo step 4 — Grace pays ₦100k catch-up */
-devRouter.post("/demo-catch-up/:partnerId", async (req, res) => {
+/** Demo step 4 — Grace pays catch-up (local dev only) */
+devRouter.post("/demo-catch-up/:partnerId", localOnly, async (req, res) => {
   try {
     const result = await applyDemoCatchUp(req.params.partnerId);
     res.json({ data: result });

@@ -23,9 +23,9 @@ export function StatCard({
   };
 
   return (
-    <div className="card flex flex-col gap-2 p-4">
+    <div className="card flex h-full min-h-[7.5rem] flex-col gap-2 p-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-xs font-medium text-text-secondary">{label}</p>
+        <p className="text-xs font-medium leading-snug text-text-secondary">{label}</p>
         {icon ? (
           <span className="liquid-glass liquid-glass-orb flex h-9 w-9 shrink-0 items-center justify-center text-text-secondary">
             {icon}
@@ -33,7 +33,7 @@ export function StatCard({
         ) : null}
       </div>
       <p className={`text-2xl font-bold tracking-tight ${valueTones[tone]}`}>{value}</p>
-      {hint ? <p className="text-xs text-text-muted">{hint}</p> : null}
+      {hint ? <p className="text-xs leading-snug text-text-muted">{hint}</p> : null}
     </div>
   );
 }
@@ -60,16 +60,18 @@ export function AlertSection({
 
   return (
     <section className={`card overflow-hidden border-l-[3px] ${accentBorder[tone]}`}>
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-white/40 px-5 py-4">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-white/40 px-5 py-4 sm:px-6 lg:px-8 lg:py-5">
+        <div className="min-w-0 flex-1">
           <h2 className="section-title">{title}</h2>
           {description ? (
-            <p className="mt-1 text-sm text-text-secondary">{description}</p>
+            <p className="mt-1.5 text-sm leading-relaxed text-text-secondary lg:text-[15px]">
+              {description}
+            </p>
           ) : null}
         </div>
         {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
       </div>
-      {children ? <div className="p-4">{children}</div> : null}
+      {children ? <div className="p-4 sm:p-5 lg:p-6">{children}</div> : null}
     </section>
   );
 }
@@ -148,16 +150,18 @@ export function PageSection({
 }) {
   return (
     <section className="card overflow-hidden">
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-white/35 px-5 py-4">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-white/35 px-5 py-4 sm:px-6 lg:px-8 lg:py-5">
+        <div className="min-w-0 flex-1">
           <h2 className="section-title">{title}</h2>
           {description ? (
-            <p className="mt-1 text-sm text-text-secondary">{description}</p>
+            <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-text-secondary lg:text-[15px]">
+              {description}
+            </p>
           ) : null}
         </div>
         {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
       </div>
-      <div className={flush ? undefined : "p-5"}>{children}</div>
+      <div className={flush ? undefined : "p-5 sm:p-6 lg:p-8"}>{children}</div>
     </section>
   );
 }

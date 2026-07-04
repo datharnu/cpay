@@ -14,7 +14,7 @@ export type MonthlyCollectionBucket = {
 
 type ChartRange = 6 | 12;
 
-const PLOT_HEIGHT_PX = 176;
+const PLOT_HEIGHT_PX = 220;
 const Y_AXIS_TICKS = 4;
 
 function niceCeiling(value: number) {

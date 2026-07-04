@@ -18,13 +18,11 @@ services:
         sync: false
       - key: SEED_SANDBOX_PARTNERS
         value: "true"
-      - key: SKIP_WEBHOOK_SIGNATURE
-        value: "true"
-        # Sandbox fallback when NOMBA_WEBHOOK_SECRET is not set. Real Nomba webhooks still work.
       - key: CORS_ORIGIN
         value: http://localhost:3000
       - key: CORS_ALLOW_VERCEL
         value: "true"
+      # Hackathon LIVE credentials (Nomba hackathon pack) — not sandbox.nomba.com
       - key: NOMBA_BASE_URL
         value: https://api.nomba.com
       - key: NOMBA_ACCOUNT_ID
@@ -35,6 +33,7 @@ services:
         sync: false
       - key: NOMBA_CLIENT_SECRET
         sync: false
+      # Required on Render — CPay verifies nomba-signature HMAC on every webhook
       - key: NOMBA_WEBHOOK_SECRET
         sync: false
       - key: WEBHOOK_URL

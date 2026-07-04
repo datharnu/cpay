@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { formatMoney, StatusBadge } from "@/components/shared/AppShell";
 import { PageSection } from "@/components/shared/ui";
 import { PaymentsTable, type PaymentTableRow } from "@/components/partners/PaymentsTable";
+import { PaymentExportAction } from "@/components/partners/PaymentExportBar";
 import { BankSearchSelect } from "@/components/partners/BankSearchSelect";
 import { useNombaBanks, useResolveOverpayment, useCheckRefundStatus } from "@/hooks/useCpay";
 import { useDebouncedBankLookup } from "@/hooks/useBankAccountLookup";
@@ -150,7 +151,15 @@ function LedgerStat({
 
 type PaymentRow = PartnerDetail["payments"][number];
 
-export function PaymentHistoryPanel({ payments }: { payments: PaymentRow[] }) {
+export function PaymentHistoryPanel({
+  payments,
+  partnerId,
+  partnerName,
+}: {
+  payments: PaymentRow[];
+  partnerId: string;
+  partnerName: string;
+}) {
   const rows: PaymentTableRow[] = payments.map((p) => ({
     id: p.id,
     amount: p.amount,
@@ -165,6 +174,13 @@ export function PaymentHistoryPanel({ payments }: { payments: PaymentRow[] }) {
       flush
       title="Payment history"
       description="Every transfer to this member's dedicated account — reconciled via Nomba webhooks."
+      actions={
+        <PaymentExportAction
+          partnerId={partnerId}
+          partnerName={partnerName}
+          scopeLabel={partnerName}
+        />
+      }
     >
       <PaymentsTable payments={rows} />
     </PageSection>
