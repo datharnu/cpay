@@ -7,8 +7,9 @@ import {
 export async function nombaWebhookHandler(req: Request, res: Response) {
   const rawBody = req.body as Buffer;
   const signature = req.header("nomba-signature");
+  const timestamp = req.header("nomba-timestamp");
 
-  if (!verifyWebhookSignature(rawBody, signature)) {
+  if (!verifyWebhookSignature(rawBody, signature, timestamp)) {
     res.status(401).send("Invalid signature");
     return;
   }

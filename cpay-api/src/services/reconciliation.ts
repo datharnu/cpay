@@ -1,4 +1,3 @@
-import crypto from "crypto";
 import { Partner, Payment, WebhookEvent } from "../models";
 import { applyPaymentToLedger, nairaToKobo } from "./ledger";
 import { applyPaymentSideEffects } from "./paymentEffects";
@@ -8,6 +7,7 @@ import {
   parseNombaWebhookPayload,
   isCpayOutboundTransferWebhook,
 } from "./webhookPayload";
+import { verifyNombaWebhookSignature } from "./nombaWebhookSignature";
 
 const PAYMENT_EVENTS = new Set([
   "payment_success",
@@ -17,20 +17,10 @@ const PAYMENT_EVENTS = new Set([
 
 export function verifyWebhookSignature(
   rawBody: Buffer,
-  signature: string | undefined
+  signature: string | undefined,
+  timestamp?: string | undefined
 ): boolean {
-  if (process.env.SKIP_WEBHOOK_SIGNATURE === "true") return true;
-
-  const secret = process.env.NOMBA_WEBHOOK_SECRET;
-  if (!secret) return true;
-  if (!signature) return false;
-
-  const expected = crypto
-    .createHmac("sha256", secret)
-    .update(rawBody)
-    .digest("hex");
-
-  return signature === expected;
+  return verifyNombaWebhookSignature(rawBody, signature, timestamp);
 }
 
 export async function handleNombaWebhook(

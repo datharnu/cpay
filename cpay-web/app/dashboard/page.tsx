@@ -14,11 +14,14 @@ import {
   PartnersTableSkeleton,
   StatCard,
 } from "@/components/shared/ui";
-import { useDashboardSummary, usePartners } from "@/hooks/useCpay";
+import { useDashboardSummary, useImportMissingNomba, usePartners } from "@/hooks/useCpay";
+import { useToast } from "@/components/shared/Toast";
 
 export default function DashboardPage() {
   const { data: summary, isLoading: summaryLoading, dataUpdatedAt } = useDashboardSummary();
   const { data: partners, isLoading: partnersLoading } = usePartners();
+  const importMissing = useImportMissingNomba();
+  const { success, error: toastError } = useToast();
 
   const lastUpdated = dataUpdatedAt
     ? new Date(dataUpdatedAt).toLocaleTimeString("en-NG")
@@ -43,7 +46,32 @@ export default function DashboardPage() {
           Live webhook reconciliation
           {lastUpdated ? ` · updated ${lastUpdated}` : null}
         </p>
-        <LiveBadge label="Live via Nomba webhooks" />
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={importMissing.isPending}
+            onClick={() => {
+              importMissing.mutate(undefined, {
+                onSuccess: (data) => {
+                  success(
+                    data.imported > 0
+                      ? `Imported ${data.imported} missed payment${data.imported === 1 ? "" : "s"} from Nomba`
+                      : "No missed payments found on Nomba"
+                  );
+                },
+                onError: (err) => {
+                  toastError(
+                    err instanceof Error ? err.message : "Failed to import from Nomba"
+                  );
+                },
+              });
+            }}
+            className="rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-muted disabled:opacity-50"
+          >
+            {importMissing.isPending ? "Importing…" : "Import missed payments"}
+          </button>
+          <LiveBadge label="Live via Nomba webhooks" />
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
