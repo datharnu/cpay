@@ -66,7 +66,7 @@ export default function HomePage() {
                 The fix
               </p>
               <p className="text-sm leading-relaxed text-text-secondary">
-                Every member gets a <span className="font-semibold text-text-primary">dedicated Nomba account number</span>. The moment they pay, it's matched automatically right person, right month, right amount.
+                Every member gets a <span className="font-semibold text-text-primary">dedicated Nomba account number</span>. The moment they pay, it is matched automatically — right person, right month, right amount.
               </p>
             </div>
           </div>
