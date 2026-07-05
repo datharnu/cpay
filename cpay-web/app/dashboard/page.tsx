@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { AppShell, formatMoney } from "@/components/shared/AppShell";
 import { DashboardCollectionsChart } from "@/components/dashboard/DashboardCollectionsChart";
+import { DashboardOverviewSkeleton } from "@/components/dashboard/DashboardOverviewSkeleton";
 import { PaymentsTable } from "@/components/partners/PaymentsTable";
 import { PartnersTable } from "@/components/partners/PartnersTable";
 import {
@@ -14,14 +15,11 @@ import {
   PartnersTableSkeleton,
   StatCard,
 } from "@/components/shared/ui";
-import { useDashboardSummary, useImportMissingNomba, usePartners } from "@/hooks/useCpay";
-import { useToast } from "@/components/shared/Toast";
+import { useDashboardSummary, usePartners } from "@/hooks/useCpay";
 
 export default function DashboardPage() {
-  const { data: summary, isLoading: summaryLoading, dataUpdatedAt } = useDashboardSummary();
+  const { data: summary, isPending: summaryPending, dataUpdatedAt } = useDashboardSummary();
   const { data: partners, isLoading: partnersLoading } = usePartners();
-  const importMissing = useImportMissingNomba();
-  const { success, error: toastError } = useToast();
 
   const lastUpdated = dataUpdatedAt
     ? new Date(dataUpdatedAt).toLocaleTimeString("en-NG")
@@ -39,6 +37,14 @@ export default function DashboardPage() {
     virtualAccountNumber: p.virtualAccountNumber,
   }));
 
+  if (summaryPending) {
+    return (
+      <AppShell title="Dashboard Overview">
+        <DashboardOverviewSkeleton />
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell title="Dashboard Overview">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -46,51 +52,22 @@ export default function DashboardPage() {
           Live webhook reconciliation
           {lastUpdated ? ` · updated ${lastUpdated}` : null}
         </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            disabled={importMissing.isPending}
-            onClick={() => {
-              importMissing.mutate(undefined, {
-                onSuccess: (data) => {
-                  success(
-                    data.imported > 0
-                      ? `Imported ${data.imported} missed payment${data.imported === 1 ? "" : "s"} from Nomba`
-                      : "No missed payments found on Nomba"
-                  );
-                },
-                onError: (err) => {
-                  toastError(
-                    err instanceof Error ? err.message : "Failed to import from Nomba"
-                  );
-                },
-              });
-            }}
-            className="rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-muted disabled:opacity-50"
-          >
-            {importMissing.isPending ? "Importing…" : "Import missed payments"}
-          </button>
-          <LiveBadge label="Live via Nomba webhooks" />
-        </div>
+        <LiveBadge label="Live via Nomba webhooks" />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <StatCard
           label="Nomba wallet (live)"
           value={
-            summaryLoading
-              ? "…"
-              : summary?.nombaWalletBalance == null
-                ? "—"
-                : formatMoney(summary.nombaWalletBalance)
+            summary?.nombaWalletBalance == null
+              ? "—"
+              : formatMoney(summary.nombaWalletBalance)
           }
           tone="info"
           hint={
-            summaryLoading
-              ? undefined
-              : summary?.nombaWalletError
-                ? "Could not reach Nomba"
-                : "Exact money left in Nomba right now"
+            summary?.nombaWalletError
+              ? "Could not reach Nomba"
+              : "Exact money left in Nomba right now"
           }
           icon={
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -100,13 +77,9 @@ export default function DashboardPage() {
         />
         <StatCard
           label="Total recorded"
-          value={summaryLoading ? "…" : formatMoney(summary?.totalCollected ?? 0)}
+          value={formatMoney(summary?.totalCollected ?? 0)}
           tone="success"
-          hint={
-            summaryLoading
-              ? undefined
-              : `${summary?.totalPayments ?? 0} payment${summary?.totalPayments === 1 ? "" : "s"} in CPay`
-          }
+          hint={`${summary?.totalPayments ?? 0} payment${summary?.totalPayments === 1 ? "" : "s"} in CPay`}
           icon={
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
@@ -115,11 +88,9 @@ export default function DashboardPage() {
         />
         <StatCard
           label="Collected this month"
-          value={summaryLoading ? "…" : formatMoney(summary?.collectedThisMonth ?? 0)}
+          value={formatMoney(summary?.collectedThisMonth ?? 0)}
           tone="info"
-          hint={
-            summaryLoading ? undefined : `${summary?.collectionRate ?? 0}% of expected`
-          }
+          hint={`${summary?.collectionRate ?? 0}% of expected`}
           icon={
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.375M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
@@ -128,13 +99,9 @@ export default function DashboardPage() {
         />
         <StatCard
           label="Expected this month"
-          value={summaryLoading ? "…" : formatMoney(summary?.expectedThisMonth ?? 0)}
+          value={formatMoney(summary?.expectedThisMonth ?? 0)}
           tone="default"
-          hint={
-            summaryLoading
-              ? undefined
-              : `${summary?.membersPaidThisMonth ?? 0}/${summary?.membersTrackedThisMonth ?? 0} members fully paid`
-          }
+          hint={`${summary?.membersPaidThisMonth ?? 0}/${summary?.membersTrackedThisMonth ?? 0} members fully paid`}
           icon={
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
@@ -143,7 +110,7 @@ export default function DashboardPage() {
         />
         <StatCard
           label="Outstanding"
-          value={summaryLoading ? "…" : formatMoney(summary?.totalArrears ?? 0)}
+          value={formatMoney(summary?.totalArrears ?? 0)}
           tone={(summary?.totalArrears ?? 0) > 0 ? "danger" : "success"}
           icon={
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -153,8 +120,8 @@ export default function DashboardPage() {
         />
         <StatCard
           label="Partners"
-          value={summaryLoading ? "…" : String(summary?.totalPartners ?? 0)}
-          hint={summaryLoading ? undefined : `${summary?.activePartners ?? 0} active`}
+          value={String(summary?.totalPartners ?? 0)}
+          hint={`${summary?.activePartners ?? 0} active`}
           icon={
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766m12.748 0c-.995.608-2.085.96-3.228 1.066M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
@@ -168,7 +135,7 @@ export default function DashboardPage() {
           >
             <StatCard
               label="Overpayments"
-              value={summaryLoading ? "…" : String(summary.pendingOverpayments)}
+              value={String(summary.pendingOverpayments)}
               tone="warning"
               hint="Tap to resolve"
               icon={
@@ -181,7 +148,7 @@ export default function DashboardPage() {
         ) : (
           <StatCard
             label="Overpayments"
-            value={summaryLoading ? "…" : String(summary?.pendingOverpayments ?? 0)}
+            value={String(summary?.pendingOverpayments ?? 0)}
             tone="success"
             hint="No excess awaiting decision"
             icon={
@@ -193,7 +160,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {!summaryLoading && summary?.nombaWalletError ? (
+      {summary?.nombaWalletError ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           Could not load Nomba live balance: {summary.nombaWalletError}
         </div>
@@ -206,7 +173,7 @@ export default function DashboardPage() {
         <DashboardCollectionsChart
           months6={summary?.monthlyCollections6 ?? summary?.monthlyCollections ?? []}
           months12={summary?.monthlyCollections12 ?? []}
-          isLoading={summaryLoading}
+          isLoading={false}
         />
       </PageSection>
 
@@ -248,14 +215,7 @@ export default function DashboardPage() {
           </Link>
         }
       >
-        {summaryLoading ? (
-          <div className="space-y-3 px-5 py-6">
-            <div className="h-10 animate-pulse rounded-lg bg-white/25" />
-            <div className="h-10 animate-pulse rounded-lg bg-white/25" />
-          </div>
-        ) : (
-          <PaymentsTable payments={recentPaymentRows} showMember />
-        )}
+        <PaymentsTable payments={recentPaymentRows} showMember />
       </PageSection>
 
       <PageSection
