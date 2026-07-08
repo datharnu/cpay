@@ -4,6 +4,10 @@ Church partnership payment tracker for the Nomba Hackathon (Team Rems).
 
 Each partnership member gets a dedicated Nomba virtual account. Payments reconcile automatically via webhooks.
 
+## Demo video
+
+[Watch the CPay demo on Loom](https://www.loom.com/share/a8abbbc478cf4e28aa574753c7ac1baa)
+
 ## Structure
 
 ```
